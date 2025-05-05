@@ -9,6 +9,7 @@ import AddProjectScreen from '../screens/AddProjectScreen';
 import AddTaskScreen from '../screens/AddTaskScreen';
 import CalendarScreen from '../screens/CalendarScreen';
 import ChatScreen from '../screens/ChatScreen';
+import EventDetailScreen from '../screens/EventDetailScreen';
 import FocusScreen from '../screens/FocusScreen';
 import HomeScreen from '../screens/HomeScreen';
 import JournalDetailScreen from '../screens/JournalDetailScreen';
@@ -22,6 +23,7 @@ import ProjectDetailScreen from '../screens/ProjectDetailScreen';
 import ProjectScreen from '../screens/ProjectScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import StatisticsScreen from '../screens/StatisticsScreen';
+import TodoDetailScreen from '../screens/TodoDetailScreen';
 import WaterTrackerScreen from '../screens/WaterTrackerScreen';
 
 // Custom Tab Bar bileşenimizi import et
@@ -59,6 +61,8 @@ function CalendarStack() {
       <Stack.Screen name="CalendarMain" component={CalendarScreen} />
       <Stack.Screen name="AddTask" component={AddTaskScreen} />
       <Stack.Screen name="AddEvent" component={AddEventScreen} />
+      <Stack.Screen name="EventDetail" component={EventDetailScreen} />
+      <Stack.Screen name="TodoDetail" component={TodoDetailScreen} />
     </Stack.Navigator>
   );
 }
@@ -119,6 +123,8 @@ export default function AppNavigator() {
             <Stack.Screen name="Statistics" component={StatisticsScreen} />
             <Stack.Screen name="AddTask" component={AddTaskScreen} />
             <Stack.Screen name="AddEvent" component={AddEventScreen} />
+            <Stack.Screen name="EventDetail" component={EventDetailScreen} />
+            <Stack.Screen name="TodoDetail" component={TodoDetailScreen} />
           </>
         ) : (
           <>

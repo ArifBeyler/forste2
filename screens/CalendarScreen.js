@@ -2,19 +2,29 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
 import {
     Animated,
+    LayoutAnimation,
+    Platform,
     ScrollView,
     StatusBar,
     StyleSheet,
     Text,
     TouchableOpacity,
+    UIManager,
     View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-export default function CalendarScreen({ navigation }) {
+// AnimasyonConfigurasyon (Android için)
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+export default function CalendarScreen({ navigation, route }) {
   const [selectedDay, setSelectedDay] = useState(25);
-  const [welcomeMessage, setWelcomeMessage] = useState('');
+  const [welcomeMessage, setWelcomeMessage] = useState('Merhaba!');
   const [isFabOpen, setIsFabOpen] = useState(false);
+  const [activeEvents, setActiveEvents] = useState([]);
+  const [loadingEvents, setLoadingEvents] = useState(false);
   
   // Animasyon değerleri
   const animation = useRef(new Animated.Value(0)).current;
@@ -122,6 +132,16 @@ export default function CalendarScreen({ navigation }) {
     setWelcomeMessage(welcomeMessages[randomIndex]);
   }, []);
 
+  // Route parametrelerinden etkinlik yenileme durumunu kontrol et
+  useEffect(() => {
+    if (route.params?.refreshEvents) {
+      // Yeni etkinlik eklendiğinde yenileme animasyonu yap
+      refreshEvents();
+      // Parametre temizliği
+      navigation.setParams({ refreshEvents: undefined });
+    }
+  }, [route.params?.refreshEvents]);
+
   // Bugünün gerçek tarihini al
   const currentDate = new Date();
   const currentDay = currentDate.getDate();
@@ -197,7 +217,8 @@ export default function CalendarScreen({ navigation }) {
       startTime: '10:00',
       endTime: '11:00',
       color: '#FFB74D',
-      type: EVENT_TYPES.MEETING
+      type: EVENT_TYPES.MEETING,
+      day: 25,
     },
     {
       id: 2,
@@ -206,7 +227,8 @@ export default function CalendarScreen({ navigation }) {
       startTime: '12:00',
       endTime: '01:20',
       color: '#81C784',
-      type: EVENT_TYPES.REVIEW
+      type: EVENT_TYPES.REVIEW,
+      day: 25,
     },
     {
       id: 3,
@@ -215,7 +237,8 @@ export default function CalendarScreen({ navigation }) {
       startTime: '13:00',
       endTime: '14:20',
       color: '#64B5F6',
-      type: EVENT_TYPES.SKETCH
+      type: EVENT_TYPES.SKETCH,
+      day: 26,
     },
     {
       id: 4,
@@ -225,12 +248,51 @@ export default function CalendarScreen({ navigation }) {
       endTime: '16:00',
       color: '#E57373',
       type: EVENT_TYPES.TODO,
-      completed: false
+      completed: false,
+      day: 27,
     }
   ];
 
+  // Etkinlikleri yenileme fonksiyonu - gerçek uygulamada API çağrısı yapılır
+  const refreshEvents = () => {
+    setLoadingEvents(true);
+    
+    // Animasyonlu geçiş efekti
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    
+    // Simüle edilmiş bir yenileme gecikmesi (gerçek uygulamada API çağrısı)
+    setTimeout(() => {
+      // Aktif etkinlikleri güncelle
+      const filteredEvents = events.filter(event => event.day === selectedDay);
+      setActiveEvents(filteredEvents);
+      setLoadingEvents(false);
+      
+      // Animasyonlu geçiş efekti tamamlanır
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    }, 800);
+  };
+
+  // Seçilen güne göre etkinlikleri filtrele
+  useEffect(() => {
+    // Yükleme durumunu göster
+    setLoadingEvents(true);
+    
+    // Animasyonlu geçiş
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    
+    // Gecikme ekleyerek animasyon daha belirgin olsun
+    setTimeout(() => {
+      const filteredEvents = events.filter(event => event.day === selectedDay);
+      setActiveEvents(filteredEvents);
+      setLoadingEvents(false);
+      
+      // Başka bir animasyon
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    }, 400);
+  }, [selectedDay]);
+
   // Olayları saate göre sıralama
-  const sortedEvents = [...events].sort((a, b) => {
+  const sortedEvents = [...activeEvents].sort((a, b) => {
     const timeA = parseInt(a.startTime.split(':')[0]);
     const timeB = parseInt(b.startTime.split(':')[0]);
     return timeA - timeB;
@@ -257,6 +319,28 @@ export default function CalendarScreen({ navigation }) {
     toggleFab();
     // Etkinlik ekleme ekranına yönlendirme
     navigation.navigate('AddEvent');
+  };
+
+  // Etkinlik veya görev silme
+  const deleteEvent = (eventId) => {
+    const updatedEvents = events.filter(event => event.id !== eventId);
+    
+    // Aktif etkinlikleri de güncelle
+    const updatedActiveEvents = activeEvents.filter(event => event.id !== eventId);
+    setActiveEvents(updatedActiveEvents);
+    
+    // Burada veri tabanı güncellemesi yapılabilir
+    console.log('Etkinlik silindi:', eventId);
+  };
+
+  // Etkinlik veya görev detayına yönlendirme
+  const handleEventPress = (event) => {
+    // Etkinlik türüne göre farklı ekranlara yönlendir
+    if (event.type === EVENT_TYPES.TODO) {
+      navigation.navigate('TodoDetail', { todo: event, onDelete: deleteEvent });
+    } else {
+      navigation.navigate('EventDetail', { event, onDelete: deleteEvent });
+    }
   };
 
   return (
@@ -328,81 +412,122 @@ export default function CalendarScreen({ navigation }) {
       
       {/* Etkinlikler listesi */}
       <ScrollView style={styles.timelineContainer}>
-        {sortedEvents.map((event, index) => {
-          // Etkinlik türüne göre simge seç
-          let iconName;
-          switch(event.type) {
-            case EVENT_TYPES.MEETING:
-              iconName = 'people-outline';
-              break;
-            case EVENT_TYPES.REVIEW:
-              iconName = 'document-text-outline';
-              break;
-            case EVENT_TYPES.SKETCH:
-              iconName = 'brush-outline';
-              break;
-            case EVENT_TYPES.TODO:
-              iconName = 'checkbox-outline';
-              break;
-            default:
-              iconName = 'calendar-outline';
-          }
-          
-          return (
-            <View key={event.id} style={styles.timelineItem}>
-              {/* Saat */}
-              <View style={styles.timeColumn}>
-                <Text style={styles.timeText}>{event.startTime}</Text>
-              </View>
-              
-              {/* Etkinlik kartı */}
-              <View style={styles.eventCardContainer}>
-                <View style={styles.eventCard}>
-                  <View 
-                    style={[
-                      styles.eventLeftBorder, 
-                      { backgroundColor: event.color }
-                    ]} 
-                  />
-                  
-                  <View style={styles.eventContent}>
-                    {/* Kategori başlığı ve ikon yan yana */}
-                    <View style={styles.categoryRow}>
-                      <View style={[styles.eventIconContainer, { backgroundColor: `${event.color}20` }]}>
-                        <Ionicons name={iconName} size={16} color={event.color} />
-                      </View>
-                      <Text style={[styles.eventCategory, { color: event.color }]}>
-                        {event.title}
-                      </Text>
-                    </View>
-                    
-                    <Text style={styles.eventTitle}>{event.description}</Text>
-                    <View style={styles.eventDetailRow}>
-                      <Ionicons name="time-outline" size={14} color="#999" style={{marginRight: 4}} />
-                      <Text style={styles.eventTime}>
-                        {event.startTime} - {event.endTime}
-                      </Text>
+        {loadingEvents ? (
+          // Yükleme durumunda gösterilecek içerik
+          <View style={styles.loadingContainer}>
+            {[1, 2, 3].map((_, index) => (
+              <View key={index} style={styles.loadingItem}>
+                <View style={styles.loadingTimeColumn}>
+                  <View style={styles.loadingTimeBlock} />
+                </View>
+                <View style={styles.loadingCardContainer}>
+                  <View style={styles.loadingEventCard}>
+                    <View style={styles.loadingCardLeft} />
+                    <View style={styles.loadingCardContent}>
+                      <View style={styles.loadingTitle} />
+                      <View style={styles.loadingDescription} />
+                      <View style={styles.loadingTime} />
                     </View>
                   </View>
-                  
-                  {/* Yapılacak türündeki kartlar için onay kutusu */}
-                  {event.type === EVENT_TYPES.TODO && (
-                    <TouchableOpacity style={styles.checkboxContainer}>
-                      <View style={[
-                        styles.checkbox,
-                        event.completed && styles.checkboxCompleted
-                      ]}>
-                        {event.completed && (
-                          <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-                        )}
-                      </View>
-                    </TouchableOpacity>
-                  )}
                 </View>
               </View>
-            </View>
-          );
-        })}
+            ))}
+          </View>
+        ) : sortedEvents.length > 0 ? (
+          sortedEvents.map((event, index) => {
+            // Etkinlik türüne göre simge seç
+            let iconName;
+            switch(event.type) {
+              case EVENT_TYPES.MEETING:
+                iconName = 'people-outline';
+                break;
+              case EVENT_TYPES.REVIEW:
+                iconName = 'document-text-outline';
+                break;
+              case EVENT_TYPES.SKETCH:
+                iconName = 'brush-outline';
+                break;
+              case EVENT_TYPES.TODO:
+                iconName = 'checkbox-outline';
+                break;
+              default:
+                iconName = 'calendar-outline';
+            }
+            
+            return (
+              <View key={event.id} style={styles.timelineItem}>
+                {/* Saat */}
+                <View style={styles.timeColumn}>
+                  <Text style={styles.timeText}>{event.startTime}</Text>
+                </View>
+                
+                {/* Etkinlik kartı */}
+                <TouchableOpacity 
+                  style={styles.eventCardContainer}
+                  onPress={() => handleEventPress(event)}
+                >
+                  <View style={styles.eventCard}>
+                    <View 
+                      style={[
+                        styles.eventLeftBorder, 
+                        { backgroundColor: event.color }
+                      ]} 
+                    />
+                    
+                    <View style={styles.eventContent}>
+                      {/* Kategori başlığı ve ikon yan yana */}
+                      <View style={styles.categoryRow}>
+                        <View style={[styles.eventIconContainer, { backgroundColor: `${event.color}20` }]}>
+                          <Ionicons name={iconName} size={16} color={event.color} />
+                        </View>
+                        <Text style={[styles.eventCategory, { color: event.color }]}>
+                          {event.title}
+                        </Text>
+                      </View>
+                      
+                      <Text style={styles.eventTitle}>{event.description}</Text>
+                      <View style={styles.eventDetailRow}>
+                        <Ionicons name="time-outline" size={14} color="#999" style={{marginRight: 4}} />
+                        <Text style={styles.eventTime}>
+                          {event.startTime} - {event.endTime}
+                        </Text>
+                      </View>
+                    </View>
+                    
+                    {/* Yapılacak türündeki kartlar için onay kutusu */}
+                    {event.type === EVENT_TYPES.TODO && (
+                      <TouchableOpacity 
+                        style={styles.checkboxContainer}
+                        onPress={() => {
+                          // İçerideki tıklama olayının dışarıya yayılmasını engelle
+                          // event.stopPropagation(); // React Native'de çalışmaz
+                          const updatedEvent = { ...event, completed: !event.completed };
+                          // Burada API çağrısı olabilir, şimdilik sadece log
+                          console.log('Durum değişti:', updatedEvent);
+                        }}
+                      >
+                        <View style={[
+                          styles.checkbox,
+                          event.completed && styles.checkboxCompleted
+                        ]}>
+                          {event.completed && (
+                            <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                          )}
+                        </View>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              </View>
+            );
+          })
+        ) : (
+          <View style={styles.emptyStateContainer}>
+            <Ionicons name="calendar-outline" size={48} color="#ddd" />
+            <Text style={styles.emptyStateText}>Bugün için etkinlik yok</Text>
+            <Text style={styles.emptyStateSubText}>Yeni bir etkinlik eklemek için + butonuna tıklayın</Text>
+          </View>
+        )}
         
         {/* Zaman çizgisi noktası */}
         <View style={styles.timelineDotContainer}>
@@ -425,11 +550,8 @@ export default function CalendarScreen({ navigation }) {
           style={[styles.fabButtonSecondary, {backgroundColor: '#E57373'}]} 
           onPress={handleAddTask}
         >
-          <Ionicons name="checkbox-outline" size={22} color="#FFF" />
+          <Text style={styles.fabButtonText}>Yapılacak</Text>
         </TouchableOpacity>
-        <View style={styles.fabLabelContainer}>
-          <Text style={styles.fabLabel}>Yapılacak Ekle</Text>
-        </View>
       </Animated.View>
       
       {/* Etkinlik Ekle Butonu */}
@@ -446,11 +568,8 @@ export default function CalendarScreen({ navigation }) {
           style={[styles.fabButtonSecondary, {backgroundColor: '#64B5F6'}]} 
           onPress={handleAddEvent}
         >
-          <Ionicons name="calendar-outline" size={22} color="#FFF" />
+          <Text style={styles.fabButtonText}>Etkinlik</Text>
         </TouchableOpacity>
-        <View style={styles.fabLabelContainer}>
-          <Text style={styles.fabLabel}>Etkinlik Ekle</Text>
-        </View>
       </Animated.View>
       
       {/* Ana Ekle Butonu */}
@@ -703,15 +822,14 @@ const styles = StyleSheet.create({
   fabSecondary: {
     position: 'absolute',
     bottom: 28,
-    right: 20,
-    flexDirection: 'row',
+    right: 28,
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
   },
   fabButtonSecondary: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 100,
+    height: 56,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 5,
@@ -720,16 +838,83 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 3,
   },
-  fabLabelContainer: {
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
-    marginRight: 10,
-  },
-  fabLabel: {
+  fabButtonText: {
     color: '#FFF',
-    fontSize: 12,
-    fontWeight: '500',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  loadingContainer: {
+    marginTop: 20,
+  },
+  loadingItem: {
+    flexDirection: 'row',
+    marginBottom: 20,
+  },
+  loadingTimeColumn: {
+    width: 60,
+    paddingRight: 10,
+    alignItems: 'center',
+  },
+  loadingTimeBlock: {
+    width: 40,
+    height: 15,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 4,
+  },
+  loadingCardContainer: {
+    flex: 1,
+  },
+  loadingEventCard: {
+    flexDirection: 'row',
+    backgroundColor: '#f8f8f8',
+    borderRadius: 16,
+    height: 90,
+    overflow: 'hidden',
+  },
+  loadingCardLeft: {
+    width: 4,
+    backgroundColor: '#e0e0e0',
+  },
+  loadingCardContent: {
+    flex: 1,
+    padding: 16,
+  },
+  loadingTitle: {
+    width: '60%',
+    height: 15,
+    backgroundColor: '#eeeeee',
+    borderRadius: 4,
+    marginBottom: 10,
+  },
+  loadingDescription: {
+    width: '80%',
+    height: 12,
+    backgroundColor: '#eeeeee',
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  loadingTime: {
+    width: '40%',
+    height: 10,
+    backgroundColor: '#eeeeee',
+    borderRadius: 4,
+  },
+  emptyStateContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    color: '#666',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyStateSubText: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
+    paddingHorizontal: 40,
   },
 }); 

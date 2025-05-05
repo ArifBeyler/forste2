@@ -16,10 +16,11 @@ import {
     View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import SuccessToast from '../components/SuccessToast';
 
 const windowHeight = Dimensions.get('window').height;
 
-const AddTaskScreen = ({ navigation }) => {
+const AddTaskScreen = ({ navigation, route }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedIcon, setSelectedIcon] = useState(null);
@@ -28,6 +29,11 @@ const AddTaskScreen = ({ navigation }) => {
   const [endTime, setEndTime] = useState(null);
   const [reminderOption, setReminderOption] = useState(null);
   const [isAllDay, setIsAllDay] = useState(false);
+  const [priority, setPriority] = useState(null); // Öncelik durumu
+  
+  // Toast state
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
   
   // Modal states
   const [iconModalVisible, setIconModalVisible] = useState(false);
@@ -35,6 +41,7 @@ const AddTaskScreen = ({ navigation }) => {
   const [timePickerVisible, setTimePickerVisible] = useState(false);
   const [timePickerMode, setTimePickerMode] = useState('start'); // 'start' veya 'end'
   const [reminderModalVisible, setReminderModalVisible] = useState(false);
+  const [priorityModalVisible, setPriorityModalVisible] = useState(false); // Öncelik modal durumu
   
   // Tarih ve saat değerleri
   const [date, setDate] = useState(new Date());
@@ -52,6 +59,13 @@ const AddTaskScreen = ({ navigation }) => {
     { id: '15_min', label: '15 dakika önce', minutes: 15 },
     { id: '30_min', label: '30 dakika önce', minutes: 30 },
     { id: '1_hour', label: '1 saat önce', minutes: 60 },
+  ];
+
+  // Öncelik seçenekleri
+  const priorityOptions = [
+    { id: 'high', label: 'Yüksek Öncelik', color: '#E53935', icon: 'alert-circle-outline' },
+    { id: 'medium', label: 'Orta Öncelik', color: '#FB8C00', icon: 'time-outline' },
+    { id: 'low', label: 'Düşük Öncelik', color: '#43A047', icon: 'checkmark-circle-outline' },
   ];
 
   // Tarih seçiciyi göster
@@ -73,11 +87,25 @@ const AddTaskScreen = ({ navigation }) => {
 
   // Form gönderme
   const handleSubmit = () => {
+    // Form kontrolleri
+    if (!title.trim()) {
+      setToastVisible(true);
+      setToastMessage('Lütfen bir başlık girin');
+      return;
+    }
+
+    if (!selectedDate) {
+      setToastVisible(true);
+      setToastMessage('Lütfen bir tarih seçin');
+      return;
+    }
+    
     // Spinner göster
     setLoading(true);
     
     // Form verilerini işle ve görev ekle
     const newTask = {
+      id: Date.now(), // Geçici ID
       title,
       description,
       icon: selectedIcon,
@@ -85,7 +113,11 @@ const AddTaskScreen = ({ navigation }) => {
       startTime,
       endTime,
       reminderOption,
-      isAllDay
+      isAllDay,
+      priority: priority ? priority.id : 'low', // Varsayılan olarak düşük öncelik
+      type: 'todo', // Görev tipi
+      day: extractDayFromDate(selectedDate), // Gün değerini al
+      completed: false, // Varsayılan olarak tamamlanmamış
     };
     
     console.log('Yeni görev:', newTask);
@@ -93,8 +125,28 @@ const AddTaskScreen = ({ navigation }) => {
     // Simüle edilmiş API çağrısı
     setTimeout(() => {
       setLoading(false);
-      navigation.goBack();
-    }, 1000);
+      
+      // Başarılı mesajını göster
+      setToastVisible(true);
+      setToastMessage('Görev başarıyla eklendi!');
+      
+      // Toast kapandıktan sonra geri dön
+      setTimeout(() => {
+        navigation.navigate('Calendar', { refreshEvents: true });
+      }, 1000);
+    }, 800);
+  };
+  
+  // Tarih içinden gün değerini çıkartma
+  const extractDayFromDate = (dateString) => {
+    // "25 Mayıs 2025" gibi bir formattan gün kısmını çıkarır
+    try {
+      const parts = dateString.split(' ');
+      return parseInt(parts[0], 10);
+    } catch (e) {
+      // Varsayılan olarak bugünün gününü döndür
+      return new Date().getDate();
+    }
   };
   
   // Tarih değişikliği
@@ -147,6 +199,12 @@ const AddTaskScreen = ({ navigation }) => {
     setReminderModalVisible(false);
   };
 
+  // Öncelik seçimi
+  const handlePrioritySelect = (priorityOption) => {
+    setPriority(priorityOption);
+    setPriorityModalVisible(false);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView 
@@ -178,6 +236,35 @@ const AddTaskScreen = ({ navigation }) => {
               onChangeText={setTitle}
               placeholderTextColor="#AAAAAA"
             />
+          </View>
+
+          {/* Öncelik Seçimi */}
+          <View style={styles.formSection}>
+            <Text style={styles.label}>Öncelik</Text>
+            <TouchableOpacity 
+              style={styles.selector}
+              onPress={() => setPriorityModalVisible(true)}
+            >
+              {priority ? (
+                <View style={styles.prioritySelector}>
+                  <View style={[styles.priorityIndicator, { backgroundColor: priority.color }]} />
+                  <View style={styles.selectorIconContainer}>
+                    <Ionicons name={priority.icon} size={22} color={priority.color} />
+                  </View>
+                  <Text style={[styles.selectorText, { color: priority.color, fontWeight: '600' }]}>
+                    {priority.label}
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.prioritySelector}>
+                  <View style={styles.selectorIconContainer}>
+                    <Ionicons name="flag-outline" size={22} color="#666" />
+                  </View>
+                  <Text style={styles.selectorText}>Öncelik seç</Text>
+                </View>
+              )}
+              <Ionicons name="chevron-down" size={18} color="#999" style={{ marginLeft: 'auto' }} />
+            </TouchableOpacity>
           </View>
 
           {/* Simge Seçimi */}
@@ -307,7 +394,7 @@ const AddTaskScreen = ({ navigation }) => {
             <TouchableOpacity 
               style={styles.saveButton} 
               onPress={handleSubmit}
-              disabled={loading}
+              disabled={loading || !title}
             >
               {loading ? (
                 <ActivityIndicator color="#fff" size="small" />
@@ -318,69 +405,56 @@ const AddTaskScreen = ({ navigation }) => {
           </View>
         </ScrollView>
         
-        {/* Modal için DatePicker - Android */}
-        {Platform.OS === 'android' && datePickerVisible && (
-          <DateTimePicker
-            value={date}
-            mode="date"
-            display="default"
-            onChange={handleDateChange}
-            locale="tr-TR"
-          />
-        )}
-        
-        {Platform.OS === 'android' && timePickerVisible && (
-          <DateTimePicker
-            value={timePickerMode === 'start' ? startTimeValue : endTimeValue}
-            mode="time"
-            display="default"
-            onChange={handleTimeChange}
-            is24Hour={true}
-            locale="tr-TR"
-          />
-        )}
-        
-        {/* iOS için özel modal datepicker - Popup tarzı */}
-        {Platform.OS === 'ios' && (
+        {/* Tarih Seçim Modalı */}
+        {datePickerVisible && (
           <Modal
             animationType="fade"
             transparent={true}
             visible={datePickerVisible}
             onRequestClose={() => setDatePickerVisible(false)}
           >
-            <View style={styles.datePickerModal}>
-              <View style={styles.datePickerPopup}>
+            <TouchableOpacity 
+              style={styles.datePickerModal} 
+              activeOpacity={1}
+              onPress={() => setDatePickerVisible(false)}
+            >
+              <TouchableOpacity 
+                activeOpacity={1} 
+                onPress={(e) => e.stopPropagation()}
+                style={styles.datePickerPopup}
+              >
                 <View style={styles.datePickerHeader}>
                   <TouchableOpacity onPress={() => setDatePickerVisible(false)}>
                     <Text style={styles.datePickerCancelText}>İptal</Text>
                   </TouchableOpacity>
                   <Text style={styles.datePickerTitle}>Tarih Seç</Text>
-                  <TouchableOpacity onPress={() => handleDateChange(null, date)}>
+                  <TouchableOpacity onPress={() => {
+                    handleDateChange(null, date);
+                    setDatePickerVisible(false);
+                  }}>
                     <Text style={styles.datePickerDoneText}>Tamam</Text>
                   </TouchableOpacity>
                 </View>
-                <View style={{height: 220, backgroundColor: '#FFFFFF'}}>
+                <View style={styles.pickerContainer}>
                   <DateTimePicker
                     value={date}
                     mode="date"
                     display="spinner"
-                    onChange={(event, selectedDate) => setDate(selectedDate || date)}
-                    locale="tr-TR"
-                    style={{
-                      height: 200,
-                      width: Dimensions.get('window').width * 0.88,
-                      backgroundColor: '#FFFFFF',
+                    onChange={(event, selectedDate) => {
+                      setDate(selectedDate || date);
                     }}
+                    locale="tr-TR"
+                    style={styles.picker}
                     textColor="black"
                   />
                 </View>
-              </View>
-            </View>
+              </TouchableOpacity>
+            </TouchableOpacity>
           </Modal>
         )}
         
-        {/* iOS için özel modal timepicker - Popup tarzı */}
-        {Platform.OS === 'ios' && (
+        {/* Saat Seçim Modalı */}
+        {timePickerVisible && (
           <Modal
             animationType="fade"
             transparent={true}
@@ -405,18 +479,18 @@ const AddTaskScreen = ({ navigation }) => {
                     {timePickerMode === 'start' ? 'Başlangıç Saati' : 'Bitiş Saati'}
                   </Text>
                   <TouchableOpacity 
-                    onPress={() => handleTimeChange(
-                      null, 
-                      timePickerMode === 'start' ? startTimeValue : endTimeValue
-                    )}
+                    onPress={() => {
+                      handleTimeChange(
+                        null, 
+                        timePickerMode === 'start' ? startTimeValue : endTimeValue
+                      );
+                      setTimePickerVisible(false);
+                    }}
                   >
                     <Text style={styles.datePickerDoneText}>Tamam</Text>
                   </TouchableOpacity>
                 </View>
-                <View style={{
-                  height: 220, 
-                  backgroundColor: '#FFFFFF',
-                }}>
+                <View style={styles.pickerContainer}>
                   <DateTimePicker
                     value={timePickerMode === 'start' ? startTimeValue : endTimeValue}
                     mode="time"
@@ -430,11 +504,7 @@ const AddTaskScreen = ({ navigation }) => {
                     }}
                     locale="tr-TR"
                     is24Hour={true}
-                    style={{
-                      height: 200,
-                      width: Dimensions.get('window').width * 0.88,
-                      backgroundColor: '#FFFFFF'
-                    }}
+                    style={styles.picker}
                     textColor="black"
                   />
                 </View>
@@ -523,6 +593,59 @@ const AddTaskScreen = ({ navigation }) => {
           </View>
         </Modal>
         
+        {/* Öncelik Seçim Modalı */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={priorityModalVisible}
+          onRequestClose={() => setPriorityModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.reminderModalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Öncelik Seç</Text>
+                <TouchableOpacity onPress={() => setPriorityModalVisible(false)}>
+                  <Ionicons name="close" size={24} color="#333" />
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.reminderOptions}>
+                {priorityOptions.map((option) => (
+                  <TouchableOpacity
+                    key={option.id}
+                    style={[
+                      styles.reminderOption,
+                      priority && priority.id === option.id && styles.selectedReminderOption,
+                      { borderLeftWidth: 4, borderLeftColor: option.color }
+                    ]}
+                    onPress={() => handlePrioritySelect(option)}
+                  >
+                    <View style={styles.priorityOptionContent}>
+                      <Ionicons name={option.icon} size={22} color={option.color} style={{ marginRight: 10 }} />
+                      <Text style={[
+                        styles.reminderOptionText,
+                        priority && priority.id === option.id && { color: option.color, fontWeight: '600' }
+                      ]}>
+                        {option.label}
+                      </Text>
+                    </View>
+                    {priority && priority.id === option.id && (
+                      <Ionicons name="checkmark" size={18} color={option.color} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </View>
+        </Modal>
+        
+        {/* Success Toast */}
+        <SuccessToast 
+          visible={toastVisible} 
+          message={toastMessage} 
+          onHide={() => setToastVisible(false)}
+          type={toastMessage.includes('başarıyla') ? 'success' : 'warning'}
+        />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -842,6 +965,33 @@ const styles = StyleSheet.create({
   },
   iosDatePicker: {
     width: '100%',
+  },
+  prioritySelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  priorityIndicator: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 10,
+  },
+  priorityOptionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  pickerContainer: {
+    height: 220,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  picker: {
+    height: 200,
+    width: '100%',
+    alignSelf: 'center',
   },
 });
 

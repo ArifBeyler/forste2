@@ -14,8 +14,9 @@ import {
     View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import SuccessToast from '../components/SuccessToast';
 
-const AddEventScreen = ({ navigation }) => {
+const AddEventScreen = ({ navigation, route }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedIcon, setSelectedIcon] = useState(null);
@@ -41,6 +42,10 @@ const AddEventScreen = ({ navigation }) => {
   const [startTimeValue, setStartTimeValue] = useState(new Date());
   const [endTimeValue, setEndTimeValue] = useState(new Date(new Date().setHours(new Date().getHours() + 1)));
   
+  // Toast state
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+
   // Hatırlatma seçenekleri
   const reminderOptions = [
     { id: 'on_time', label: 'Zamanında', minutes: 0 },
@@ -64,6 +69,7 @@ const AddEventScreen = ({ navigation }) => {
     { name: 'mail-outline', key: 'email', label: 'E-posta' },
     { name: 'desktop-outline', key: 'presentation', label: 'Sunum' },
     { name: 'restaurant-outline', key: 'lunch', label: 'Yemek' },
+    { name: 'wine-outline', key: 'party', label: 'Parti' },
   ];
 
   // Etkinlik türleri
@@ -76,8 +82,22 @@ const AddEventScreen = ({ navigation }) => {
 
   // Form gönderme
   const handleSubmit = () => {
+    // Form kontrolleri
+    if (!title.trim()) {
+      setToastVisible(true);
+      setToastMessage('Lütfen bir başlık girin');
+      return;
+    }
+
+    if (!selectedDate) {
+      setToastVisible(true);
+      setToastMessage('Lütfen bir tarih seçin');
+      return;
+    }
+    
     // Form verilerini işle ve etkinlik ekle
     const newEvent = {
+      id: Date.now(), // Geçici ID
       title,
       description,
       icon: selectedIcon,
@@ -88,18 +108,38 @@ const AddEventScreen = ({ navigation }) => {
       location,
       participants: participants.length > 0 ? participants : [currentUser],
       reminderOption,
-      isAllDay
+      isAllDay,
+      day: extractDayFromDate(selectedDate), // Gün değerini al
     };
     
     console.log('Yeni etkinlik:', newEvent);
-    // Buraya etkinlik ekleme API çağrısı gelecek
     
-    // Önceki ekrana dön
-    navigation.goBack();
+    // Başarılı mesajını göster
+    setToastVisible(true);
+    setToastMessage('Etkinlik başarıyla eklendi!');
+    
+    // Toast kapandıktan sonra geri dön
+    setTimeout(() => {
+      navigation.navigate('Calendar', { refreshEvents: true });
+    }, 1000);
+  };
+  
+  // Tarih içinden gün değerini çıkartma
+  const extractDayFromDate = (dateString) => {
+    // "25 Mayıs 2025" gibi bir formattan gün kısmını çıkarır
+    try {
+      const parts = dateString.split(' ');
+      return parseInt(parts[0], 10);
+    } catch (e) {
+      // Varsayılan olarak bugünün gününü döndür
+      return new Date().getDate();
+    }
   };
   
   // Tarih değişikliği
   const handleDateChange = (event, selectedDate) => {
+    setDatePickerVisible(false);
+    
     if (selectedDate) {
       setDate(selectedDate);
       
@@ -112,14 +152,12 @@ const AddEventScreen = ({ navigation }) => {
       
       setSelectedDate(formattedDate);
     }
-    
-    if (Platform.OS === 'android') {
-      setDatePickerVisible(false);
-    }
   };
   
   // Başlangıç saati değişikliği
   const handleStartTimeChange = (event, selectedTime) => {
+    setStartTimePickerVisible(false);
+    
     if (selectedTime) {
       setStartTimeValue(selectedTime);
       
@@ -132,14 +170,12 @@ const AddEventScreen = ({ navigation }) => {
       
       setStartTime(formattedTime);
     }
-    
-    if (Platform.OS === 'android') {
-      setStartTimePickerVisible(false);
-    }
   };
   
   // Bitiş saati değişikliği
   const handleEndTimeChange = (event, selectedTime) => {
+    setEndTimePickerVisible(false);
+    
     if (selectedTime) {
       setEndTimeValue(selectedTime);
       
@@ -151,10 +187,6 @@ const AddEventScreen = ({ navigation }) => {
       });
       
       setEndTime(formattedTime);
-    }
-    
-    if (Platform.OS === 'android') {
-      setEndTimePickerVisible(false);
     }
   };
   
@@ -388,249 +420,277 @@ const AddEventScreen = ({ navigation }) => {
             </TouchableOpacity>
           </View>
         </ScrollView>
-      </KeyboardAvoidingView>
 
-      {/* İkon Seçim Modalı */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={iconModalVisible}
-        onRequestClose={() => setIconModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Simge Seç</Text>
-              <TouchableOpacity onPress={() => setIconModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#333" />
-              </TouchableOpacity>
+        {/* İkon Seçim Modalı */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={iconModalVisible}
+          onRequestClose={() => setIconModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Simge Seç</Text>
+                <TouchableOpacity onPress={() => setIconModalVisible(false)}>
+                  <Ionicons name="close" size={24} color="#333" />
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.iconGrid}>
+                {icons.map((icon) => (
+                  <TouchableOpacity
+                    key={icon.key}
+                    style={[
+                      styles.iconButton,
+                      selectedIcon === icon.key && styles.selectedIconButton
+                    ]}
+                    onPress={() => handleIconSelect(icon.key)}
+                  >
+                    <Ionicons 
+                      name={icon.name} 
+                      size={24} 
+                      color={selectedIcon === icon.key ? '#fff' : '#555'} 
+                    />
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
-            
-            <View style={styles.iconGrid}>
-              {icons.map((icon) => (
-                <TouchableOpacity
-                  key={icon.key}
-                  style={[
-                    styles.iconButton,
-                    selectedIcon === icon.key && styles.selectedIconButton
-                  ]}
-                  onPress={() => handleIconSelect(icon.key)}
-                >
-                  <Ionicons 
-                    name={icon.name} 
-                    size={24} 
-                    color={selectedIcon === icon.key ? '#fff' : '#555'} 
+          </View>
+        </Modal>
+        
+        {/* Etkinlik Türü Seçim Modalı */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={eventTypeModalVisible}
+          onRequestClose={() => setEventTypeModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.reminderModalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Etkinlik Türü</Text>
+                <TouchableOpacity onPress={() => setEventTypeModalVisible(false)}>
+                  <Ionicons name="close" size={24} color="#333" />
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.reminderOptions}>
+                {eventTypes.map((type) => (
+                  <TouchableOpacity
+                    key={type.id}
+                    style={[
+                      styles.reminderOption,
+                      eventType === type.id && styles.selectedReminderOption,
+                      { borderLeftWidth: 4, borderLeftColor: type.color }
+                    ]}
+                    onPress={() => handleEventTypeSelect(type.id)}
+                  >
+                    <Text style={[
+                      styles.reminderOptionText,
+                      eventType === type.id && { color: type.color, fontWeight: '600' }
+                    ]}>
+                      {type.name}
+                    </Text>
+                    {eventType === type.id && (
+                      <Ionicons name="checkmark" size={18} color={type.color} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </View>
+        </Modal>
+        
+        {/* Tarih Seçim Modalı */}
+        {datePickerVisible && (
+          <Modal
+            animationType="fade"
+            transparent={true}
+            visible={datePickerVisible}
+            onRequestClose={() => setDatePickerVisible(false)}
+          >
+            <View style={styles.datePickerModal}>
+              <View style={styles.datePickerPopup}>
+                <View style={styles.datePickerHeader}>
+                  <TouchableOpacity onPress={() => setDatePickerVisible(false)}>
+                    <Text style={styles.datePickerCancelText}>İptal</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.datePickerTitle}>Tarih Seç</Text>
+                  <TouchableOpacity onPress={() => {
+                    handleDateChange(null, date);
+                    setDatePickerVisible(false);
+                  }}>
+                    <Text style={styles.datePickerDoneText}>Tamam</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.pickerContainer}>
+                  <DateTimePicker
+                    testID="datePicker"
+                    value={date}
+                    mode="date"
+                    display="spinner"
+                    onChange={(event, selectedDate) => setDate(selectedDate || date)}
+                    locale="tr-TR"
+                    style={styles.picker}
+                    textColor="black"
                   />
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        </View>
-      </Modal>
-      
-      {/* Etkinlik Türü Seçim Modalı */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={eventTypeModalVisible}
-        onRequestClose={() => setEventTypeModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.reminderModalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Etkinlik Türü</Text>
-              <TouchableOpacity onPress={() => setEventTypeModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#333" />
-              </TouchableOpacity>
-            </View>
-            
-            <View style={styles.reminderOptions}>
-              {eventTypes.map((type) => (
-                <TouchableOpacity
-                  key={type.id}
-                  style={[
-                    styles.reminderOption,
-                    eventType === type.id && styles.selectedReminderOption,
-                    { borderLeftWidth: 4, borderLeftColor: type.color }
-                  ]}
-                  onPress={() => handleEventTypeSelect(type.id)}
-                >
-                  <Text style={[
-                    styles.reminderOptionText,
-                    eventType === type.id && { color: type.color, fontWeight: '600' }
-                  ]}>
-                    {type.name}
-                  </Text>
-                  {eventType === type.id && (
-                    <Ionicons name="checkmark" size={18} color={type.color} />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        </View>
-      </Modal>
-      
-      {/* Tarih Seçim Modalı */}
-      {datePickerVisible && (
-        <Modal
-          animationType="fade"
-          transparent={true}
-          visible={datePickerVisible}
-          onRequestClose={() => setDatePickerVisible(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.datePickerContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Tarih Seç</Text>
-                <TouchableOpacity onPress={() => setDatePickerVisible(false)}>
-                  <Ionicons name="close" size={24} color="#333" />
-                </TouchableOpacity>
+                </View>
               </View>
-              
-              <DateTimePicker
-                testID="datePicker"
-                value={date}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'calendar'}
-                onChange={handleDateChange}
-                style={styles.datePicker}
-              />
-              
-              {Platform.OS === 'ios' && (
-                <TouchableOpacity 
-                  style={styles.dateConfirmButton}
-                  onPress={() => setDatePickerVisible(false)}
-                >
-                  <Text style={styles.dateConfirmButtonText}>Tamam</Text>
-                </TouchableOpacity>
-              )}
             </View>
-          </View>
-        </Modal>
-      )}
+          </Modal>
+        )}
 
-      {/* Başlangıç Saati Seçim Modalı */}
-      {startTimePickerVisible && (
-        <Modal
-          animationType="fade"
-          transparent={true}
-          visible={startTimePickerVisible}
-          onRequestClose={() => setStartTimePickerVisible(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.timePickerContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Başlangıç Saati</Text>
-                <TouchableOpacity onPress={() => setStartTimePickerVisible(false)}>
-                  <Ionicons name="close" size={24} color="#333" />
-                </TouchableOpacity>
-              </View>
-              
-              <DateTimePicker
-                testID="startTimePicker"
-                value={startTimeValue}
-                mode="time"
-                display="spinner"
-                onChange={handleStartTimeChange}
-                style={styles.timePicker}
-                is24Hour={true}
-              />
-              
-              {Platform.OS === 'ios' && (
-                <TouchableOpacity 
-                  style={styles.dateConfirmButton}
-                  onPress={() => setStartTimePickerVisible(false)}
-                >
-                  <Text style={styles.dateConfirmButtonText}>Tamam</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-        </Modal>
-      )}
-      
-      {/* Bitiş Saati Seçim Modalı */}
-      {endTimePickerVisible && (
-        <Modal
-          animationType="fade"
-          transparent={true}
-          visible={endTimePickerVisible}
-          onRequestClose={() => setEndTimePickerVisible(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.timePickerContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Bitiş Saati</Text>
-                <TouchableOpacity onPress={() => setEndTimePickerVisible(false)}>
-                  <Ionicons name="close" size={24} color="#333" />
-                </TouchableOpacity>
-              </View>
-              
-              <DateTimePicker
-                testID="endTimePicker"
-                value={endTimeValue}
-                mode="time"
-                display="spinner"
-                onChange={handleEndTimeChange}
-                style={styles.timePicker}
-                is24Hour={true}
-              />
-              
-              {Platform.OS === 'ios' && (
-                <TouchableOpacity 
-                  style={styles.dateConfirmButton}
-                  onPress={() => setEndTimePickerVisible(false)}
-                >
-                  <Text style={styles.dateConfirmButtonText}>Tamam</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-        </Modal>
-      )}
-      
-      {/* Hatırlatma Seçim Modalı */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={reminderModalVisible}
-        onRequestClose={() => setReminderModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.reminderModalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Hatırlatma Seç</Text>
-              <TouchableOpacity onPress={() => setReminderModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#333" />
+        {/* Başlangıç Saati Seçim Modalı */}
+        {startTimePickerVisible && (
+          <Modal
+            animationType="fade"
+            transparent={true}
+            visible={startTimePickerVisible}
+            onRequestClose={() => setStartTimePickerVisible(false)}
+          >
+            <TouchableOpacity 
+              style={styles.datePickerModal} 
+              activeOpacity={1}
+              onPress={() => setStartTimePickerVisible(false)}
+            >
+              <TouchableOpacity 
+                activeOpacity={1} 
+                onPress={(e) => e.stopPropagation()}
+                style={styles.datePickerPopup}
+              >
+                <View style={styles.datePickerHeader}>
+                  <TouchableOpacity onPress={() => setStartTimePickerVisible(false)}>
+                    <Text style={styles.datePickerCancelText}>İptal</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.datePickerTitle}>Başlangıç Saati</Text>
+                  <TouchableOpacity onPress={() => {
+                    handleStartTimeChange(null, startTimeValue);
+                    setStartTimePickerVisible(false);
+                  }}>
+                    <Text style={styles.datePickerDoneText}>Tamam</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.pickerContainer}>
+                  <DateTimePicker
+                    testID="startTimePicker"
+                    value={startTimeValue}
+                    mode="time"
+                    display="spinner"
+                    onChange={(event, selectedTime) => {
+                      setStartTimeValue(selectedTime || startTimeValue);
+                    }}
+                    locale="tr-TR"
+                    is24Hour={true}
+                    style={styles.picker}
+                    textColor="black"
+                  />
+                </View>
               </TouchableOpacity>
-            </View>
-            
-            <View style={styles.reminderOptions}>
-              {reminderOptions.map((option) => (
-                <TouchableOpacity
-                  key={option.id}
-                  style={[
-                    styles.reminderOption,
-                    reminderOption?.id === option.id && styles.selectedReminderOption
-                  ]}
-                  onPress={() => handleReminderSelect(option)}
-                >
-                  <Text style={[
-                    styles.reminderOptionText,
-                    reminderOption?.id === option.id && styles.selectedReminderOptionText
-                  ]}>
-                    {option.label}
-                  </Text>
-                  {reminderOption?.id === option.id && (
-                    <Ionicons name="checkmark" size={18} color="#3B82F6" />
-                  )}
+            </TouchableOpacity>
+          </Modal>
+        )}
+        
+        {/* Bitiş Saati Seçim Modalı */}
+        {endTimePickerVisible && (
+          <Modal
+            animationType="fade"
+            transparent={true}
+            visible={endTimePickerVisible}
+            onRequestClose={() => setEndTimePickerVisible(false)}
+          >
+            <TouchableOpacity 
+              style={styles.datePickerModal} 
+              activeOpacity={1}
+              onPress={() => setEndTimePickerVisible(false)}
+            >
+              <TouchableOpacity 
+                activeOpacity={1} 
+                onPress={(e) => e.stopPropagation()}
+                style={styles.datePickerPopup}
+              >
+                <View style={styles.datePickerHeader}>
+                  <TouchableOpacity onPress={() => setEndTimePickerVisible(false)}>
+                    <Text style={styles.datePickerCancelText}>İptal</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.datePickerTitle}>Bitiş Saati</Text>
+                  <TouchableOpacity onPress={() => {
+                    handleEndTimeChange(null, endTimeValue);
+                    setEndTimePickerVisible(false);
+                  }}>
+                    <Text style={styles.datePickerDoneText}>Tamam</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.pickerContainer}>
+                  <DateTimePicker
+                    testID="endTimePicker"
+                    value={endTimeValue}
+                    mode="time"
+                    display="spinner"
+                    onChange={(event, selectedTime) => {
+                      setEndTimeValue(selectedTime || endTimeValue);
+                    }}
+                    locale="tr-TR"
+                    is24Hour={true}
+                    style={styles.picker}
+                    textColor="black"
+                  />
+                </View>
+              </TouchableOpacity>
+            </TouchableOpacity>
+          </Modal>
+        )}
+        
+        {/* Hatırlatma Seçim Modalı */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={reminderModalVisible}
+          onRequestClose={() => setReminderModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.reminderModalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Hatırlatma Seç</Text>
+                <TouchableOpacity onPress={() => setReminderModalVisible(false)}>
+                  <Ionicons name="close" size={24} color="#333" />
                 </TouchableOpacity>
-              ))}
+              </View>
+              
+              <View style={styles.reminderOptions}>
+                {reminderOptions.map((option) => (
+                  <TouchableOpacity
+                    key={option.id}
+                    style={[
+                      styles.reminderOption,
+                      reminderOption?.id === option.id && styles.selectedReminderOption
+                    ]}
+                    onPress={() => handleReminderSelect(option)}
+                  >
+                    <Text style={[
+                      styles.reminderOptionText,
+                      reminderOption?.id === option.id && styles.selectedReminderOptionText
+                    ]}>
+                      {option.label}
+                    </Text>
+                    {reminderOption?.id === option.id && (
+                      <Ionicons name="checkmark" size={18} color="#3B82F6" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
+
+        {/* Success Toast */}
+        <SuccessToast 
+          visible={toastVisible} 
+          message={toastMessage} 
+          onHide={() => setToastVisible(false)}
+          type={toastMessage.includes('başarıyla') ? 'success' : 'warning'}
+        />
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -898,21 +958,60 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
   },
-  datePickerContent: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 20,
-    width: '90%',
+  datePickerModal: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    minHeight: Platform.OS === 'ios' ? 350 : 450,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-  timePickerContent: {
+  datePickerPopup: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    padding: 20,
     width: '90%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  datePickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    minHeight: 300,
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  datePickerTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  datePickerCancelText: {
+    fontSize: 16,
+    color: '#777',
+  },
+  datePickerDoneText: {
+    fontSize: 16,
+    color: '#3B82F6',
+    fontWeight: '600',
+  },
+  pickerContainer: {
+    height: 220,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  picker: {
+    height: 200,
+    width: '100%',
+    alignSelf: 'center',
   },
   reminderModalContent: {
     backgroundColor: '#FFFFFF',
@@ -946,27 +1045,6 @@ const styles = StyleSheet.create({
   selectedReminderOptionText: {
     color: '#3B82F6',
     fontWeight: '500',
-  },
-  datePicker: {
-    width: Platform.OS === 'ios' ? 320 : '100%',
-    height: Platform.OS === 'ios' ? 220 : 350,
-    marginBottom: 10,
-  },
-  timePicker: {
-    width: Platform.OS === 'ios' ? 320 : '100%',
-    height: 200,
-  },
-  dateConfirmButton: {
-    backgroundColor: '#3B82F6',
-    paddingVertical: 12,
-    paddingHorizontal: 30,
-    borderRadius: 12,
-    marginTop: 15,
-  },
-  dateConfirmButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
   },
 });
 
