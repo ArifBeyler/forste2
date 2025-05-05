@@ -1,0 +1,79 @@
+{
+  "welcome": {
+    "title": "Hoş Geldiniz",
+    "subtitle": "Forste'ye Hoş Geldiniz!",
+    "getStarted": "Başla",
+    "registerSubtitle": "Hesabınızı oluşturun ve hemen başlayın",
+    "loginSubtitle": "Hesabınıza giriş yapın"
+  },
+  "onboarding": {
+    "skip": "Atla",
+    "next": "İleri",
+    "back": "Geri",
+    "step1": {
+      "title": "Nefes al.",
+      "description": "Her şey çok hızlı gidiyor olabilir... ama burada yavaşlayabilirsin."
+    },
+    "step2": {
+      "title": "Rahatla.",
+      "description": "Günlük rutininden bir adım geri çekil ve kendine bir mola ver."
+    },
+    "step3": {
+      "title": "Hayatını düzenle.",
+      "description": "Görevlerini planla, günlük tut ve sağlıklı alışkanlıklar edinmeye başla."
+    }
+  },
+  "auth": {
+    "login": "Giriş Yap",
+    "register": "Kayıt Ol",
+    "forgotPassword": "Şifremi Unuttum",
+    "email": "E-posta",
+    "password": "Şifre",
+    "confirmPassword": "Şifre Tekrarı",
+    "fullName": "Ad Soyad",
+    "birthdate": "Doğum Tarihi",
+    "hasAccount": "Zaten hesabın var mı?",
+    "noAccount": "Hesabın yok mu?",
+    "logout": "Çıkış Yap",
+    "or": "veya",
+    "continueWithGoogle": "Google ile Devam Et",
+    "continueWithApple": "Apple ile Devam Et",
+    "termsPrefix": "Kayıt olarak",
+    "terms": "Kullanım Koşulları",
+    "and": "ve",
+    "privacy": "Gizlilik Politikası",
+    "haveAccount": "Zaten hesabın var mı?"
+  },
+  "tabs": {
+    "home": "Ana Sayfa",
+    "calendar": "Takvim",
+    "timer": "Zamanlayıcı",
+    "profile": "Profil"
+  },
+  "profile": {
+    "title": "Profil",
+    "height": "Boy",
+    "weight": "Kilo",
+    "activity": "Aktivite Seviyesi",
+    "interests": "İlgi Alanları",
+    "save": "Kaydet"
+  },
+  "activityLevels": {
+    "low": "Düşük",
+    "medium": "Orta",
+    "high": "Yüksek"
+  },
+  "errors": {
+    "required": "Bu alan zorunludur",
+    "invalidEmail": "Geçersiz e-posta adresi",
+    "passwordLength": "Şifre en az 6 karakterden oluşmalıdır",
+    "passwordMatch": "Şifreler eşleşmiyor",
+    "login": "Giriş sırasında bir hata oluştu",
+    "register": "Kayıt sırasında bir hata oluştu",
+    "registration": "Kayıt işlemi sırasında bir hata oluştu"
+  },
+  "common": {
+    "cancel": "İptal",
+    "confirm": "Onayla"
+  }
+} 

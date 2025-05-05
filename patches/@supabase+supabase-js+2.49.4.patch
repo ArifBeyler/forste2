@@ -1,0 +1,27 @@
+diff --git a/node_modules/@supabase/supabase-js/dist/main/lib/SupabaseClient.js b/node_modules/@supabase/supabase-js/dist/main/lib/SupabaseClient.js
+index 9e86f3e..bcac3d1 100644
+--- a/node_modules/@supabase/supabase-js/dist/main/lib/SupabaseClient.js
++++ b/node_modules/@supabase/supabase-js/dist/main/lib/SupabaseClient.js
+@@ -31,7 +31,6 @@ if (!exports.__esModule) {
+ }
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.SupabaseClient = void 0;
+-const realtime_js_1 = require("@supabase/realtime-js");
+ const functions_js_1 = require("@supabase/functions-js");
+ const postgrest_js_1 = require("@supabase/postgrest-js");
+ const storage_js_1 = require("@supabase/storage-js");
+@@ -124,6 +123,12 @@ class SupabaseClient {
+     }
+     // REALTIME
+     channel(name, opts = { config: {} }) {
++        // Devre dışı bırakılmış realtime fonksiyonu
++        console.warn('Realtime feature is disabled in this build');
++        return {
++            subscribe: () => ({ unsubscribe: () => {} }),
++            on: () => {}
++        };
+         const channelName = name;
+         const channelOpts = opts;
+         if (this.realtime === undefined) {
+``` 
+</rewritten_file>

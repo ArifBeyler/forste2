@@ -1,0 +1,13 @@
+diff --git a/node_modules/@supabase/realtime-js/node_modules/ws/lib/stream.js b/node_modules/@supabase/realtime-js/node_modules/ws/lib/stream.js
+index a6c78be..df35bc3 100644
+--- a/node_modules/@supabase/realtime-js/node_modules/ws/lib/stream.js
++++ b/node_modules/@supabase/realtime-js/node_modules/ws/lib/stream.js
+@@ -2,7 +2,7 @@
+ 'use strict';
+ 
+ const WebSocket = require('./websocket');
+-const { Duplex } = require('stream');
++const { Duplex } = require('stream-browserify');
+ 
+ /**
+  * Emits the `'close'` event on a stream.

@@ -1,0 +1,9 @@
+"use strict";
+const { Buffer } = require("buffer");
+
+// https://url.spec.whatwg.org/#concept-urlencoded-parser
+function parseUrlencoded(input) {
+  // Implementation of parseUrlencoded function
+}
+
+module.exports = { parseUrlencoded }; 

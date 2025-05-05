@@ -1,0 +1,8 @@
+'use strict';
+
+const WebSocket = require('./websocket');
+const { Duplex } = require('stream-browserify');
+
+/**
+ * Emits the `'close'` event on a stream.
+ 

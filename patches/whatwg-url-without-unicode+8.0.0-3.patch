@@ -1,0 +1,11 @@
+diff --git a/node_modules/whatwg-url-without-unicode/lib/urlencoded.js b/node_modules/whatwg-url-without-unicode/lib/urlencoded.js
+index 462ee22..abea681 100644
+--- a/node_modules/whatwg-url-without-unicode/lib/urlencoded.js
++++ b/node_modules/whatwg-url-without-unicode/lib/urlencoded.js
+@@ -1,5 +1,5 @@
+ "use strict";
+-const { Buffer } = require("buffer/");
++const { Buffer } = require("buffer");
+ 
+ const { isASCIIHex } = require("./infra");
+ 

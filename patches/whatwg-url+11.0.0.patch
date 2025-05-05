@@ -1,0 +1,12 @@
+diff --git a/node_modules/whatwg-url-without-unicode/lib/urlencoded.js b/node_modules/whatwg-url-without-unicode/lib/urlencoded.js
+index 8c06e50..11e7f80 100644
+--- a/node_modules/whatwg-url-without-unicode/lib/urlencoded.js
++++ b/node_modules/whatwg-url-without-unicode/lib/urlencoded.js
+@@ -1,5 +1,5 @@
+ "use strict";
+-const { Buffer } = require("node-libs-react-native/buffer/");
++const { Buffer } = require("buffer");
+ 
+ // https://url.spec.whatwg.org/#concept-urlencoded-parser
+ function parseUrlencoded(input) {
+``` 

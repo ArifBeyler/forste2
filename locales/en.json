@@ -1,0 +1,80 @@
+{
+  "welcome": {
+    "title": "Welcome",
+    "subtitle": "Welcome to Forste!",
+    "getStarted": "Get Started",
+    "registerSubtitle": "Create your account and get started",
+    "loginSubtitle": "Sign in to your account"
+  },
+  "onboarding": {
+    "skip": "Skip",
+    "next": "Next",
+    "back": "Back",
+    "step1": {
+      "title": "Take a breath.",
+      "description": "Everything might be going too fast... but you can slow down here."
+    },
+    "step2": {
+      "title": "Relax.",
+      "description": "Take a step back from your daily routine and give yourself a break."
+    },
+    "step3": {
+      "title": "Organize your life.",
+      "description": "Plan your tasks, keep a journal, and develop healthy habits."
+    }
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "forgotPassword": "Forgot Password",
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "fullName": "Full Name",
+    "name": "Name",
+    "birthdate": "Birth Date",
+    "hasAccount": "Already have an account?",
+    "noAccount": "Don't have an account?",
+    "logout": "Logout",
+    "or": "or",
+    "continueWithGoogle": "Continue with Google",
+    "continueWithApple": "Continue with Apple",
+    "termsPrefix": "By registering, you agree to our",
+    "terms": "Terms of Service",
+    "and": "and",
+    "privacy": "Privacy Policy",
+    "haveAccount": "Already have an account?"
+  },
+  "tabs": {
+    "home": "Home",
+    "calendar": "Calendar",
+    "timer": "Timer",
+    "profile": "Profile"
+  },
+  "profile": {
+    "title": "Profile",
+    "height": "Height",
+    "weight": "Weight",
+    "activity": "Activity Level",
+    "interests": "Interests",
+    "save": "Save"
+  },
+  "activityLevels": {
+    "low": "Low",
+    "medium": "Medium",
+    "high": "High"
+  },
+  "errors": {
+    "required": "This field is required",
+    "invalidEmail": "Invalid email address",
+    "passwordLength": "Password must be at least 6 characters",
+    "passwordMatch": "Passwords do not match",
+    "login": "An error occurred during login",
+    "register": "An error occurred during registration",
+    "registration": "An error occurred during registration"
+  },
+  "common": {
+    "cancel": "Cancel",
+    "confirm": "Confirm"
+  }
+} 
