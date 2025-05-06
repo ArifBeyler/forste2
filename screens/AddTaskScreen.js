@@ -3,6 +3,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import React, { useState } from 'react';
 import {
     ActivityIndicator,
+    Alert,
     Dimensions,
     KeyboardAvoidingView,
     Modal,
@@ -17,10 +18,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SuccessToast from '../components/SuccessToast';
+import { useCalendar } from '../context/CalendarContext';
 
 const windowHeight = Dimensions.get('window').height;
 
-const AddTaskScreen = ({ navigation, route }) => {
+export default function AddTaskScreen({ navigation, route }) {
+  const { addTask } = useCalendar();
+  
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedIcon, setSelectedIcon] = useState(null);
@@ -29,7 +33,9 @@ const AddTaskScreen = ({ navigation, route }) => {
   const [endTime, setEndTime] = useState(null);
   const [reminderOption, setReminderOption] = useState(null);
   const [isAllDay, setIsAllDay] = useState(false);
-  const [priority, setPriority] = useState(null); // Öncelik durumu
+  const [priority, setPriority] = useState('medium');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState({});
   
   // Toast state
   const [toastVisible, setToastVisible] = useState(false);
@@ -85,56 +91,73 @@ const AddTaskScreen = ({ navigation, route }) => {
     setTimePickerVisible(true);
   };
 
-  // Form gönderme
-  const handleSubmit = () => {
-    // Form kontrolleri
-    if (!title.trim()) {
-      setToastVisible(true);
-      setToastMessage('Lütfen bir başlık girin');
+  // Tarihi formatla
+  const formatDate = (date) => {
+    return date.toLocaleDateString('tr-TR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+  };
+
+  // Görev ekle
+  const handleAddTask = async () => {
+    // Hata kontrolü
+    const formErrors = {};
+    if (!title) formErrors.title = 'Başlık gerekli';
+
+    if (Object.keys(formErrors).length > 0) {
+      setErrors(formErrors);
       return;
     }
 
-    if (!selectedDate) {
-      setToastVisible(true);
-      setToastMessage('Lütfen bir tarih seçin');
-      return;
+    setIsSubmitting(true);
+
+    try {
+      // Görev verisi
+      const newTask = {
+        title,
+        description,
+        type: 'todo',
+        day: date.getDate(),
+        date: date.toISOString().split('T')[0], // ISO formatında tarih
+        startTime: isAllDay ? null : timeRange.startTime,
+        endTime: isAllDay ? null : timeRange.endTime,
+        isAllDay,
+        reminderOption,
+        priority,
+        completed: false,
+        color: getPriorityColor(priority),
+        icon: 'checkbox-outline' // Görevler için sabit simge
+      };
+
+      const result = await addTask(newTask);
+
+      if (result.success) {
+        navigation.navigate('CalendarScreen', { refreshEvents: true });
+      } else {
+        Alert.alert('Hata', result.error || 'Görev eklenirken bir hata oluştu.');
+      }
+    } catch (error) {
+      console.error('Görev eklenemedi:', error);
+      Alert.alert('Hata', 'Görev eklenirken teknik bir hata oluştu.');
+    } finally {
+      setIsSubmitting(false);
     }
-    
-    // Spinner göster
-    setLoading(true);
-    
-    // Form verilerini işle ve görev ekle
-    const newTask = {
-      id: Date.now(), // Geçici ID
-      title,
-      description,
-      icon: selectedIcon,
-      date: selectedDate,
-      startTime,
-      endTime,
-      reminderOption,
-      isAllDay,
-      priority: priority ? priority.id : 'low', // Varsayılan olarak düşük öncelik
-      type: 'todo', // Görev tipi
-      day: extractDayFromDate(selectedDate), // Gün değerini al
-      completed: false, // Varsayılan olarak tamamlanmamış
-    };
-    
-    console.log('Yeni görev:', newTask);
-    
-    // Simüle edilmiş API çağrısı
-    setTimeout(() => {
-      setLoading(false);
-      
-      // Başarılı mesajını göster
-      setToastVisible(true);
-      setToastMessage('Görev başarıyla eklendi!');
-      
-      // Toast kapandıktan sonra geri dön
-      setTimeout(() => {
-        navigation.navigate('Calendar', { refreshEvents: true });
-      }, 1000);
-    }, 800);
+  };
+  
+  // Önceliğe göre renk belirleme
+  const getTaskColor = (priority) => {
+    switch(priority) {
+      case 'high':
+        return '#E53935';
+      case 'medium':
+        return '#FB8C00';
+      case 'low':
+        return '#43A047';
+      default:
+        return '#43A047';
+    }
   };
   
   // Tarih içinden gün değerini çıkartma
@@ -247,12 +270,12 @@ const AddTaskScreen = ({ navigation, route }) => {
             >
               {priority ? (
                 <View style={styles.prioritySelector}>
-                  <View style={[styles.priorityIndicator, { backgroundColor: priority.color }]} />
+                  <View style={[styles.priorityIndicator, { backgroundColor: getTaskColor(priority) }]} />
                   <View style={styles.selectorIconContainer}>
-                    <Ionicons name={priority.icon} size={22} color={priority.color} />
+                    <Ionicons name={priorityOptions.find(p => p.id === priority)?.icon || 'time-outline'} size={22} color={getTaskColor(priority)} />
                   </View>
-                  <Text style={[styles.selectorText, { color: priority.color, fontWeight: '600' }]}>
-                    {priority.label}
+                  <Text style={[styles.selectorText, { color: getTaskColor(priority), fontWeight: '600' }]}>
+                    {priorityOptions.find(p => p.id === priority)?.label || 'Öncelik seç'}
                   </Text>
                 </View>
               ) : (
@@ -393,10 +416,10 @@ const AddTaskScreen = ({ navigation, route }) => {
           <View style={styles.buttonContainer}>
             <TouchableOpacity 
               style={styles.saveButton} 
-              onPress={handleSubmit}
-              disabled={loading || !title}
+              onPress={handleAddTask}
+              disabled={isSubmitting || !title}
             >
-              {loading ? (
+              {isSubmitting ? (
                 <ActivityIndicator color="#fff" size="small" />
               ) : (
                 <Text style={styles.saveButtonText}>Kaydet</Text>
@@ -649,7 +672,7 @@ const AddTaskScreen = ({ navigation, route }) => {
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
-};
+}
 
 // Simge seçenekleri
 const icons = [
@@ -993,6 +1016,4 @@ const styles = StyleSheet.create({
     width: '100%',
     alignSelf: 'center',
   },
-});
-
-export default AddTaskScreen; 
+}); 

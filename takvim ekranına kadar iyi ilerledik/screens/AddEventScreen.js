@@ -1,8 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
-    Alert,
     KeyboardAvoidingView,
     Modal,
     Platform,
@@ -16,31 +15,19 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SuccessToast from '../components/SuccessToast';
-import { useCalendar } from '../context/CalendarContext';
 
 const AddEventScreen = ({ navigation, route }) => {
-  const { addEvent } = useCalendar();
-  
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [selectedType, setSelectedType] = useState(EVENT_TYPES.MEETING);
-  const [date, setDate] = useState(new Date());
-  const [timeRange, setTimeRange] = useState({
-    startTime: formatTime(new Date()), 
-    endTime: formatTime(new Date(new Date().getTime() + 60 * 60 * 1000)) // 1 saat sonra
-  });
+  const [selectedIcon, setSelectedIcon] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [startTime, setStartTime] = useState(null);
+  const [endTime, setEndTime] = useState(null);
   const [location, setLocation] = useState('');
   const [participants, setParticipants] = useState([]);
-  const [participantInput, setParticipantInput] = useState('');
-  const [isAllDay, setIsAllDay] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showStartTimePicker, setShowStartTimePicker] = useState(false);
-  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
   const [reminderOption, setReminderOption] = useState(null);
-  const [color, setColor] = useState(EVENT_COLORS[EVENT_TYPES.MEETING]);
-  const [icon, setIcon] = useState(EVENT_ICONS[EVENT_TYPES.MEETING]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errors, setErrors] = useState({});
+  const [isAllDay, setIsAllDay] = useState(false);
+  const [eventType, setEventType] = useState('meeting'); // meeting, call, party, other
 
   // Modal states
   const [iconModalVisible, setIconModalVisible] = useState(false);
@@ -51,6 +38,7 @@ const AddEventScreen = ({ navigation, route }) => {
   const [eventTypeModalVisible, setEventTypeModalVisible] = useState(false);
   
   // Tarih ve saat değerleri
+  const [date, setDate] = useState(new Date());
   const [startTimeValue, setStartTimeValue] = useState(new Date());
   const [endTimeValue, setEndTimeValue] = useState(new Date(new Date().setHours(new Date().getHours() + 1)));
   
@@ -92,84 +80,48 @@ const AddEventScreen = ({ navigation, route }) => {
     { id: 'presentation', name: 'Sunum', color: '#E57373' }
   ];
 
-  // Etkinlik tipini değiştirince renk ve simge de değişsin
-  useEffect(() => {
-    setColor(EVENT_COLORS[selectedType]);
-    setIcon(EVENT_ICONS[selectedType]);
-  }, [selectedType]);
-
-  // Tarihi formatla
-  const formatDate = (date) => {
-    return date.toLocaleDateString('tr-TR', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric'
-    });
-  };
-
-  // Etkinlik ekle
-  const handleAddEvent = async () => {
-    // Hata kontrolü
-    const formErrors = {};
-    if (!title) formErrors.title = 'Başlık gerekli';
-    if (!selectedType) formErrors.type = 'Tür seçimi gerekli';
-
-    if (Object.keys(formErrors).length > 0) {
-      setErrors(formErrors);
+  // Form gönderme
+  const handleSubmit = () => {
+    // Form kontrolleri
+    if (!title.trim()) {
+      setToastVisible(true);
+      setToastMessage('Lütfen bir başlık girin');
       return;
     }
 
-    setIsSubmitting(true);
-
-    try {
-      // Supabase'e eklenecek veri formatına dönüştür
-      const newEvent = {
-        title,
-        description,
-        type: selectedType,
-        day: date.getDate(),
-        date: date.toISOString().split('T')[0], // ISO formatında tarih
-        startTime: isAllDay ? null : timeRange.startTime,
-        endTime: isAllDay ? null : timeRange.endTime,
-        location,
-        participants: participants.length > 0 ? participants : null,
-        isAllDay,
-        reminderOption,
-        color,
-        icon
-      };
-
-      const result = await addEvent(newEvent);
-
-      if (result.success) {
-        navigation.navigate('CalendarScreen', { refreshEvents: true });
-      } else {
-        Alert.alert('Hata', result.error || 'Etkinlik eklenirken bir hata oluştu.');
-      }
-    } catch (error) {
-      console.error('Etkinlik eklenemedi:', error);
-      Alert.alert('Hata', 'Etkinlik eklenirken teknik bir hata oluştu.');
-    } finally {
-      setIsSubmitting(false);
+    if (!selectedDate) {
+      setToastVisible(true);
+      setToastMessage('Lütfen bir tarih seçin');
+      return;
     }
-  };
-  
-  // Etkinlik türüne göre renk belirleme
-  const getEventColor = (type) => {
-    switch(type) {
-      case 'meeting':
-        return '#FFB74D';
-      case 'call':
-        return '#64B5F6';
-      case 'party':
-        return '#CE93D8';
-      case 'workshop':
-        return '#81C784';
-      case 'presentation':
-        return '#E57373';
-      default:
-        return '#FFB74D';
-    }
+    
+    // Form verilerini işle ve etkinlik ekle
+    const newEvent = {
+      id: Date.now(), // Geçici ID
+      title,
+      description,
+      icon: selectedIcon,
+      type: eventType,
+      date: selectedDate,
+      startTime,
+      endTime,
+      location,
+      participants: participants.length > 0 ? participants : [currentUser],
+      reminderOption,
+      isAllDay,
+      day: extractDayFromDate(selectedDate), // Gün değerini al
+    };
+    
+    console.log('Yeni etkinlik:', newEvent);
+    
+    // Başarılı mesajını göster
+    setToastVisible(true);
+    setToastMessage('Etkinlik başarıyla eklendi!');
+    
+    // Toast kapandıktan sonra geri dön
+    setTimeout(() => {
+      navigation.navigate('Calendar', { refreshEvents: true });
+    }, 1000);
   };
   
   // Tarih içinden gün değerini çıkartma
@@ -198,10 +150,7 @@ const AddEventScreen = ({ navigation, route }) => {
         year: 'numeric'
       });
       
-      setTimeRange({
-        startTime: formatTime(selectedDate),
-        endTime: formatTime(new Date(selectedDate.getTime() + 60 * 60 * 1000)) // 1 saat sonra
-      });
+      setSelectedDate(formattedDate);
     }
   };
   
@@ -219,10 +168,7 @@ const AddEventScreen = ({ navigation, route }) => {
         hour12: false
       });
       
-      setTimeRange({
-        ...timeRange,
-        startTime: formattedTime
-      });
+      setStartTime(formattedTime);
     }
   };
   
@@ -240,22 +186,19 @@ const AddEventScreen = ({ navigation, route }) => {
         hour12: false
       });
       
-      setTimeRange({
-        ...timeRange,
-        endTime: formattedTime
-      });
+      setEndTime(formattedTime);
     }
   };
   
   // Simge seçimi
   const handleIconSelect = (iconKey) => {
-    setIcon(iconKey);
+    setSelectedIcon(iconKey);
     setIconModalVisible(false);
   };
   
   // Etkinlik türü seçimi
   const handleEventTypeSelect = (typeId) => {
-    setSelectedType(typeId);
+    setEventType(typeId);
     setEventTypeModalVisible(false);
   };
   
@@ -306,11 +249,11 @@ const AddEventScreen = ({ navigation, route }) => {
               onPress={() => setEventTypeModalVisible(true)}
             >
               <View style={styles.eventTypeLabel}>
-                {selectedType && (
-                  <View style={[styles.eventTypeIndicator, { backgroundColor: getEventColor(selectedType) }]} />
+                {eventType && (
+                  <View style={[styles.eventTypeIndicator, { backgroundColor: eventTypes.find(et => et.id === eventType)?.color }]} />
                 )}
                 <Text style={styles.selectorText}>
-                  {selectedType ? eventTypes.find(et => et.id === selectedType)?.name : 'Etkinlik türü seç'}
+                  {eventType ? eventTypes.find(et => et.id === eventType)?.name : 'Etkinlik türü seç'}
                 </Text>
               </View>
               <Ionicons name="chevron-down" size={18} color="#999" style={{ marginLeft: 'auto' }} />
@@ -324,16 +267,21 @@ const AddEventScreen = ({ navigation, route }) => {
               style={styles.iconSelector}
               onPress={() => setIconModalVisible(true)}
             >
-              {icon && (
+              {selectedIcon ? (
                 <View style={styles.selectedIconContainer}>
                   <Ionicons 
-                    name={icons.find(icon => icon.key === icon)?.name || 'help-circle-outline'} 
+                    name={icons.find(icon => icon.key === selectedIcon)?.name || 'help-circle-outline'} 
                     size={28} 
                     color="#3B82F6" 
                   />
                   <Text style={styles.selectedIconText}>
-                    {icons.find(icon => icon.key === icon)?.label || 'Simge Seç'}
+                    {icons.find(icon => icon.key === selectedIcon)?.label || 'Simge Seç'}
                   </Text>
+                </View>
+              ) : (
+                <View style={styles.selectedIconContainer}>
+                  <Ionicons name="add-circle-outline" size={24} color="#666" />
+                  <Text style={styles.selectorText}>Simge Seç</Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -364,7 +312,7 @@ const AddEventScreen = ({ navigation, route }) => {
                 <Ionicons name="calendar-outline" size={22} color="#666" />
               </View>
               <Text style={styles.selectorText}>
-                {formatDate(date)}
+                {selectedDate ? selectedDate : 'Tarih seç'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -397,7 +345,7 @@ const AddEventScreen = ({ navigation, route }) => {
                   <Ionicons name="time-outline" size={22} color="#666" />
                 </View>
                 <Text style={styles.selectorText}>
-                  {timeRange.startTime ? timeRange.startTime : 'Başlangıç saati'}
+                  {startTime ? startTime : 'Başlangıç saati'}
                 </Text>
               </TouchableOpacity>
               
@@ -410,7 +358,7 @@ const AddEventScreen = ({ navigation, route }) => {
                     <Ionicons name="time-outline" size={22} color="#666" />
                   </View>
                   <Text style={styles.selectorText}>
-                    {timeRange.endTime ? timeRange.endTime : 'Bitiş saati'}
+                    {endTime ? endTime : 'Bitiş saati'}
                   </Text>
                 </TouchableOpacity>
               )}
@@ -467,7 +415,7 @@ const AddEventScreen = ({ navigation, route }) => {
 
           {/* Kaydet Butonu */}
           <View style={styles.buttonContainer}>
-            <TouchableOpacity style={styles.saveButton} onPress={handleAddEvent}>
+            <TouchableOpacity style={styles.saveButton} onPress={handleSubmit}>
               <Text style={styles.saveButtonText}>Kaydet</Text>
             </TouchableOpacity>
           </View>
@@ -495,14 +443,14 @@ const AddEventScreen = ({ navigation, route }) => {
                     key={icon.key}
                     style={[
                       styles.iconButton,
-                      icon === icon && styles.selectedIconButton
+                      selectedIcon === icon.key && styles.selectedIconButton
                     ]}
                     onPress={() => handleIconSelect(icon.key)}
                   >
                     <Ionicons 
                       name={icon.name} 
                       size={24} 
-                      color={icon === icon ? '#fff' : '#555'} 
+                      color={selectedIcon === icon.key ? '#fff' : '#555'} 
                     />
                   </TouchableOpacity>
                 ))}
@@ -533,18 +481,18 @@ const AddEventScreen = ({ navigation, route }) => {
                     key={type.id}
                     style={[
                       styles.reminderOption,
-                      selectedType === type.id && styles.selectedReminderOption,
+                      eventType === type.id && styles.selectedReminderOption,
                       { borderLeftWidth: 4, borderLeftColor: type.color }
                     ]}
                     onPress={() => handleEventTypeSelect(type.id)}
                   >
                     <Text style={[
                       styles.reminderOptionText,
-                      selectedType === type.id && { color: type.color, fontWeight: '600' }
+                      eventType === type.id && { color: type.color, fontWeight: '600' }
                     ]}>
                       {type.name}
                     </Text>
-                    {selectedType === type.id && (
+                    {eventType === type.id && (
                       <Ionicons name="checkmark" size={18} color={type.color} />
                     )}
                   </TouchableOpacity>

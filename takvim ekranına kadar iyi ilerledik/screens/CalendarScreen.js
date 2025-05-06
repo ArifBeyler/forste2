@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
     Animated,
+    LayoutAnimation,
     Platform,
     ScrollView,
     StatusBar,
@@ -13,7 +13,6 @@ import {
     View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useCalendar } from '../context/CalendarContext';
 
 // AnimasyonConfigurasyon (Android için)
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -21,30 +20,16 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 export default function CalendarScreen({ navigation, route }) {
-  const { 
-    selectedDay, 
-    setSelectedDay, 
-    activeEvents, 
-    loading, 
-    refresh,
-    toggleTaskComplete
-  } = useCalendar();
-  
+  const [selectedDay, setSelectedDay] = useState(25);
   const [welcomeMessage, setWelcomeMessage] = useState('Merhaba!');
   const [isFabOpen, setIsFabOpen] = useState(false);
-  const wasRefreshedRef = useRef(false);
-  const initialMountRef = useRef(true);
-  const lastRouteParamsRef = useRef(null);
+  const [activeEvents, setActiveEvents] = useState([]);
+  const [loadingEvents, setLoadingEvents] = useState(false);
   
   // Animasyon değerleri
   const animation = useRef(new Animated.Value(0)).current;
   const taskBtnAnimation = useRef(new Animated.Value(0)).current;
   const eventBtnAnimation = useRef(new Animated.Value(0)).current;
-
-  // Ekranın manuel olarak yenilenmesi - önce memoize et
-  const handleRefresh = useCallback(() => {
-    refresh();
-  }, [refresh]);
   
   // FAB açma/kapama animasyonu
   const toggleFab = () => {
@@ -141,42 +126,28 @@ export default function CalendarScreen({ navigation, route }) {
     "İlham dolu bir gün olsun!"
   ];
   
-  // Komponentin ilk oluşturulması
+  // Komponentin oluşturulduğunda rastgele mesaj seç
   useEffect(() => {
-    // Rastgele mesaj seç
     const randomIndex = Math.floor(Math.random() * welcomeMessages.length);
     setWelcomeMessage(welcomeMessages[randomIndex]);
-    
-    // Sadece ilk yüklemede refresh yap, sonra bir daha yapma
-    if (initialMountRef.current) {
-      refresh();
-      initialMountRef.current = false;
-      wasRefreshedRef.current = true;
-    }
   }, []);
 
-  // Route parametrelerinden etkinlik yenileme durumunu kontrol et - optimizasyon
+  // Route parametrelerinden etkinlik yenileme durumunu kontrol et
   useEffect(() => {
-    // Önceki ve şu anki route.params'ı karşılaştır
-    const currentRefreshParam = route.params?.refreshEvents;
-    const prevRefreshParam = lastRouteParamsRef.current;
-    
-    // Sadece refreshEvents değiştiğinde ve true olduğunda yenile
-    if (currentRefreshParam && currentRefreshParam !== prevRefreshParam) {
-      refresh();
-      lastRouteParamsRef.current = currentRefreshParam;
-      
+    if (route.params?.refreshEvents) {
+      // Yeni etkinlik eklendiğinde yenileme animasyonu yap
+      refreshEvents();
       // Parametre temizliği
       navigation.setParams({ refreshEvents: undefined });
     }
-  }, [route.params?.refreshEvents, refresh, navigation]);
+  }, [route.params?.refreshEvents]);
 
   // Bugünün gerçek tarihini al
   const currentDate = new Date();
   const currentDay = currentDate.getDate();
   
-  // Günleri her zaman Pazartesi ile başlayacak şekilde hesapla - dışarı çıkaralım
-  const calculateWeekDays = useCallback(() => {
+  // Günleri her zaman Pazartesi ile başlayacak şekilde hesapla
+  const calculateWeekDays = () => {
     const days = [];
     
     // Pazartesi'ye ayarla
@@ -205,19 +176,19 @@ export default function CalendarScreen({ navigation, route }) {
     }
     
     return days;
-  }, [currentDate, currentDay]);
+  };
   
-  // Haftanın günleri - memoize et
-  const weekDays = React.useMemo(() => calculateWeekDays(), [calculateWeekDays]);
+  // Haftanın günleri 
+  const weekDays = calculateWeekDays();
   
-  // Bugünün tarihini seçili hale getir - sadece bir kez
+  // Bugünün tarihini seçili hale getir
   useEffect(() => {
     // Bugünün tarihini bul ve seçili olarak ayarla
     const today = weekDays.find(day => day.isToday);
-    if (today && initialMountRef.current) {
+    if (today) {
       setSelectedDay(today.date);
     }
-  }, [weekDays, setSelectedDay]);
+  }, []);
 
   // Renk sabitleri
   const COLORS = {
@@ -236,15 +207,96 @@ export default function CalendarScreen({ navigation, route }) {
     REVIEW: 'review',
     SKETCH: 'sketch'
   };
+  
+  // Örnek etkinlikler
+  const events = [
+    {
+      id: 1,
+      title: 'Toplantı',
+      description: 'Günlük Stand Up Toplantısı',
+      startTime: '10:00',
+      endTime: '11:00',
+      color: '#FFB74D',
+      type: EVENT_TYPES.MEETING,
+      day: 25,
+    },
+    {
+      id: 2,
+      title: 'İnceleme',
+      description: 'Ay Sonu Proje Güncellemesi',
+      startTime: '12:00',
+      endTime: '01:20',
+      color: '#81C784',
+      type: EVENT_TYPES.REVIEW,
+      day: 25,
+    },
+    {
+      id: 3,
+      title: 'Taslak',
+      description: 'Mobil Sağlık Uygulaması için Fikir Geliştirme ve Wireframe',
+      startTime: '13:00',
+      endTime: '14:20',
+      color: '#64B5F6',
+      type: EVENT_TYPES.SKETCH,
+      day: 26,
+    },
+    {
+      id: 4,
+      title: 'Yapılacak',
+      description: 'API Dokümantasyonu Hazırlama',
+      startTime: '15:00',
+      endTime: '16:00',
+      color: '#E57373',
+      type: EVENT_TYPES.TODO,
+      completed: false,
+      day: 27,
+    }
+  ];
 
-  // Olayları saate göre sıralama - memoize et
-  const sortedEvents = React.useMemo(() => {
-    return [...activeEvents].sort((a, b) => {
-      const timeA = parseInt(a.startTime?.split(':')[0] || '0');
-      const timeB = parseInt(b.startTime?.split(':')[0] || '0');
-      return timeA - timeB;
-    });
-  }, [activeEvents]);
+  // Etkinlikleri yenileme fonksiyonu - gerçek uygulamada API çağrısı yapılır
+  const refreshEvents = () => {
+    setLoadingEvents(true);
+    
+    // Animasyonlu geçiş efekti
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    
+    // Simüle edilmiş bir yenileme gecikmesi (gerçek uygulamada API çağrısı)
+    setTimeout(() => {
+      // Aktif etkinlikleri güncelle
+      const filteredEvents = events.filter(event => event.day === selectedDay);
+      setActiveEvents(filteredEvents);
+      setLoadingEvents(false);
+      
+      // Animasyonlu geçiş efekti tamamlanır
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    }, 800);
+  };
+
+  // Seçilen güne göre etkinlikleri filtrele
+  useEffect(() => {
+    // Yükleme durumunu göster
+    setLoadingEvents(true);
+    
+    // Animasyonlu geçiş
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    
+    // Gecikme ekleyerek animasyon daha belirgin olsun
+    setTimeout(() => {
+      const filteredEvents = events.filter(event => event.day === selectedDay);
+      setActiveEvents(filteredEvents);
+      setLoadingEvents(false);
+      
+      // Başka bir animasyon
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    }, 400);
+  }, [selectedDay]);
+
+  // Olayları saate göre sıralama
+  const sortedEvents = [...activeEvents].sort((a, b) => {
+    const timeA = parseInt(a.startTime.split(':')[0]);
+    const timeB = parseInt(b.startTime.split(':')[0]);
+    return timeA - timeB;
+  });
 
   // Bugünün tarihini al
   const today = new Date();
@@ -257,37 +309,38 @@ export default function CalendarScreen({ navigation, route }) {
   };
 
   // Görev veya etkinlik ekleme ekranlarına yönlendirme
-  const handleAddTask = useCallback(() => {
+  const handleAddTask = () => {
     toggleFab();
     // Görev ekleme ekranına yönlendirme
     navigation.navigate('AddTask');
-  }, [navigation, toggleFab]);
+  };
   
-  const handleAddEvent = useCallback(() => {
+  const handleAddEvent = () => {
     toggleFab();
     // Etkinlik ekleme ekranına yönlendirme
     navigation.navigate('AddEvent');
-  }, [navigation, toggleFab]);
+  };
+
+  // Etkinlik veya görev silme
+  const deleteEvent = (eventId) => {
+    const updatedEvents = events.filter(event => event.id !== eventId);
+    
+    // Aktif etkinlikleri de güncelle
+    const updatedActiveEvents = activeEvents.filter(event => event.id !== eventId);
+    setActiveEvents(updatedActiveEvents);
+    
+    // Burada veri tabanı güncellemesi yapılabilir
+    console.log('Etkinlik silindi:', eventId);
+  };
 
   // Etkinlik veya görev detayına yönlendirme
-  const handleEventPress = useCallback((event) => {
+  const handleEventPress = (event) => {
     // Etkinlik türüne göre farklı ekranlara yönlendir
     if (event.type === EVENT_TYPES.TODO) {
-      navigation.navigate('TodoDetail', { todo: event });
+      navigation.navigate('TodoDetail', { todo: event, onDelete: deleteEvent });
     } else {
-      navigation.navigate('EventDetail', { event });
+      navigation.navigate('EventDetail', { event, onDelete: deleteEvent });
     }
-  }, [navigation, EVENT_TYPES.TODO]);
-
-  // İlk yüklenme veya yeni veri eklendiğinde gösterilecek olan yükleniyor animasyonu
-  const renderLoadingView = () => {
-    if (!loading) return null;
-    
-    return (
-      <View style={styles.loadingOverlay}>
-        <ActivityIndicator size="large" color="#3B82F6" />
-      </View>
-    );
   };
 
   return (
@@ -352,17 +405,14 @@ export default function CalendarScreen({ navigation, route }) {
           <Ionicons name="calendar-outline" size={22} color="#3B82F6" style={{marginRight: 8}} />
           <Text style={styles.scheduleHeaderText}>Programınız</Text>
         </View>
-        <TouchableOpacity 
-          style={styles.scheduleFilterButton}
-          onPress={handleRefresh}
-        >
-          <Ionicons name="refresh-outline" size={18} color="#666" />
+        <TouchableOpacity style={styles.scheduleFilterButton}>
+          <Ionicons name="filter-outline" size={18} color="#666" />
         </TouchableOpacity>
       </View>
       
       {/* Etkinlikler listesi */}
       <ScrollView style={styles.timelineContainer}>
-        {loading ? (
+        {loadingEvents ? (
           // Yükleme durumunda gösterilecek içerik
           <View style={styles.loadingContainer}>
             {[1, 2, 3].map((_, index) => (
@@ -391,14 +441,14 @@ export default function CalendarScreen({ navigation, route }) {
               case EVENT_TYPES.MEETING:
                 iconName = 'people-outline';
                 break;
-              case EVENT_TYPES.TODO:
-                iconName = 'checkbox-outline';
-                break;
               case EVENT_TYPES.REVIEW:
                 iconName = 'document-text-outline';
                 break;
               case EVENT_TYPES.SKETCH:
                 iconName = 'brush-outline';
+                break;
+              case EVENT_TYPES.TODO:
+                iconName = 'checkbox-outline';
                 break;
               default:
                 iconName = 'calendar-outline';
@@ -448,10 +498,12 @@ export default function CalendarScreen({ navigation, route }) {
                     {event.type === EVENT_TYPES.TODO && (
                       <TouchableOpacity 
                         style={styles.checkboxContainer}
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          // Görev tamamlama durumunu değiştirme işlemi
-                          toggleTaskComplete(event.id, !event.completed);
+                        onPress={() => {
+                          // İçerideki tıklama olayının dışarıya yayılmasını engelle
+                          // event.stopPropagation(); // React Native'de çalışmaz
+                          const updatedEvent = { ...event, completed: !event.completed };
+                          // Burada API çağrısı olabilir, şimdilik sadece log
+                          console.log('Durum değişti:', updatedEvent);
                         }}
                       >
                         <View style={[
@@ -483,9 +535,6 @@ export default function CalendarScreen({ navigation, route }) {
           <View style={styles.timelineLine} />
         </View>
       </ScrollView>
-      
-      {/* Yükleniyor göstergesi */}
-      {renderLoadingView()}
       
       {/* Yapılacak Ekle Butonu */}
       <Animated.View 
@@ -867,16 +916,5 @@ const styles = StyleSheet.create({
     color: '#999',
     textAlign: 'center',
     paddingHorizontal: 40,
-  },
-  loadingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
   },
 }); 
