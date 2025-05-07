@@ -76,5 +76,17 @@
   "common": {
     "cancel": "Cancel",
     "confirm": "Confirm"
-  }
+  },
+  "privacy": {
+    "description": "Your personal data is kept confidential and not shared with third parties. Your account and information are stored securely.",
+    "security": "The app applies secure communication and data encryption standards."
+  },
+  "support": {
+    "description": "You can contact us for any questions, suggestions, or issues.",
+    "contact": "Contact Support"
+  },
+  "Dil": "Language",
+  "Gizlilik ve Güvenlik": "Privacy & Security",
+  "Yardım ve Destek": "Help & Support",
+  "Geri": "Back"
 } 

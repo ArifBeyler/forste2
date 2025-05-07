@@ -41,12 +41,12 @@ interface Task {
 
 // Süre seçenekleri
 const TIMER_DURATIONS = [
-  { id: '5min', name: '5 min', duration: 5 },
-  { id: '10min', name: '10 min', duration: 10 },
-  { id: '15min', name: '15 min', duration: 15 },
-  { id: '25min', name: '25 min', duration: 25 },
-  { id: '30min', name: '30 min', duration: 30 },
-  { id: '60min', name: '60 min', duration: 60 },
+  { id: '5min', name: '5 dk', duration: 5 },
+  { id: '10min', name: '10 dk', duration: 10 },
+  { id: '15min', name: '15 dk', duration: 15 },
+  { id: '25min', name: '25 dk', duration: 25 },
+  { id: '30min', name: '30 dk', duration: 30 },
+  { id: '60min', name: '60 dk', duration: 60 },
 ];
 
 // Ses seçenekleri
@@ -94,10 +94,10 @@ function FocusScreenContent({ navigation }: { navigation?: any }) {
   
   // Durum
   const [activeTimer, setActiveTimer] = useState<PomodoroTimer>({
-    id: 'short_break',
-    name: 'Short Break',
-    duration: 5,
-    type: 'short_break'
+    id: 'focus',
+    name: 'Odaklan',
+    duration: 25,
+    type: 'focus'
   });
   const [timeLeft, setTimeLeft] = useState(activeTimer.duration * 60);
   const [isActive, setIsActive] = useState(false);

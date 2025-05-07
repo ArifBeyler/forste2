@@ -75,5 +75,17 @@
   "common": {
     "cancel": "İptal",
     "confirm": "Onayla"
-  }
+  },
+  "privacy": {
+    "description": "Kişisel verileriniz gizli tutulur ve üçüncü şahıslarla paylaşılmaz. Hesabınız ve bilgileriniz güvenli bir şekilde saklanır.",
+    "security": "Uygulama, güvenli iletişim ve veri şifreleme standartlarını uygular."
+  },
+  "support": {
+    "description": "Her türlü soru, öneri veya sorun için bize ulaşabilirsiniz.",
+    "contact": "Destek ile İletişime Geç"
+  },
+  "Dil": "Dil",
+  "Gizlilik ve Güvenlik": "Gizlilik ve Güvenlik",
+  "Yardım ve Destek": "Yardım ve Destek",
+  "Geri": "Geri"
 } 

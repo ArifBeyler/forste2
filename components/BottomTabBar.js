@@ -69,7 +69,7 @@ const BottomTabBar = ({ state, descriptors, navigation }) => {
   const toggleFabMenu = () => {
     // Eğer aktif ekran Calendar değilse normal Chat sayfasına git
     if (state.index !== 1) {
-      navigation.navigate('Chat');
+      navigation.navigate('ai');
       return;
     }
     
@@ -245,7 +245,7 @@ const BottomTabBar = ({ state, descriptors, navigation }) => {
           style={[styles.fabButtonSecondary, {backgroundColor: COLORS.fabGreen}]} 
           onPress={() => {
             closeFabMenu();
-            navigation.navigate('Chat');
+            navigation.navigate('ai');
           }}
         >
           <Ionicons name="chatbubble-outline" size={20} color="#FFFFFF" style={{marginRight: 8}} />

@@ -46,6 +46,7 @@ export default function TabLayout() {
           options={{ 
             title: 'AI Chat',
             animation: 'none', // Tab animasyonunu kapat
+            href: '/ai' // Doğrudan AI ana klasörüne yönlendir
           }} 
         />
         <Tabs.Screen 

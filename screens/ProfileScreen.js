@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
 // Renk Paleti
 const COLORS = {
@@ -16,6 +17,8 @@ const COLORS = {
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
+  const { language, setLanguage } = useLanguage();
+  const [langModalVisible, setLangModalVisible] = React.useState(false);
   
   // Çıkış işlemi
   const handleSignOut = () => {
@@ -26,10 +29,48 @@ export default function ProfileScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar style="dark" />
       
-      <View style={styles.header}>
+      <View style={styles.headerRow}>
         <Text style={styles.headerTitle}>Profil</Text>
-        <Text style={styles.headerSubtitle}>Hesap Bilgileriniz</Text>
+        <TouchableOpacity
+          style={styles.langButton}
+          onPress={() => setLangModalVisible(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Dil seçici"
+        >
+          <Ionicons name="language-outline" size={18} color="#666" style={{ marginRight: 4 }} />
+          <Text style={{ color: '#333', fontWeight: 'bold' }}>{language === 'tr' ? 'TR' : 'EN'}</Text>
+          <Ionicons name="chevron-down" size={16} color="#666" style={{ marginLeft: 2 }} />
+        </TouchableOpacity>
       </View>
+      
+      {/* Dil seçici modal */}
+      <Modal
+        visible={langModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setLangModalVisible(false)}
+      >
+        <TouchableOpacity style={styles.langModalOverlay} activeOpacity={1} onPress={() => setLangModalVisible(false)}>
+          <View style={styles.langModalContent}>
+            <TouchableOpacity
+              style={[styles.langOption, language === 'tr' && styles.langOptionActive]}
+              onPress={() => { setLanguage('tr'); setLangModalVisible(false); }}
+              accessibilityRole="button"
+              accessibilityLabel="Türkçe"
+            >
+              <Text style={[styles.langOptionText, language === 'tr' && styles.langOptionTextActive]}>Türkçe</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.langOption, language === 'en' && styles.langOptionActive]}
+              onPress={() => { setLanguage('en'); setLangModalVisible(false); }}
+              accessibilityRole="button"
+              accessibilityLabel="İngilizce"
+            >
+              <Text style={[styles.langOptionText, language === 'en' && styles.langOptionTextActive]}>English</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
       
       <View style={styles.profileCard}>
         <View style={styles.avatarContainer}>
@@ -49,18 +90,16 @@ export default function ProfileScreen() {
       </View>
       
       <View style={styles.menuContainer}>
-        <TouchableOpacity style={styles.menuItem}>
+        {/* <TouchableOpacity style={styles.menuItem}>
           <Ionicons name="settings-outline" size={24} color={COLORS.text} />
           <Text style={styles.menuText}>Ayarlar</Text>
           <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
-        </TouchableOpacity>
-        
+        </TouchableOpacity> */}
         <TouchableOpacity style={styles.menuItem}>
           <Ionicons name="shield-checkmark-outline" size={24} color={COLORS.text} />
           <Text style={styles.menuText}>Gizlilik ve Güvenlik</Text>
           <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
         </TouchableOpacity>
-        
         <TouchableOpacity style={styles.menuItem}>
           <Ionicons name="help-circle-outline" size={24} color={COLORS.text} />
           <Text style={styles.menuText}>Yardım ve Destek</Text>
@@ -81,19 +120,62 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  header: {
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingTop: 16,
+    marginBottom: 8,
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: COLORS.text,
   },
-  headerSubtitle: {
-    fontSize: 14,
-    color: COLORS.textLight,
-    marginTop: 4,
+  langButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  langModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  langModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    minWidth: 160,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+  },
+  langOption: {
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    borderRadius: 6,
+    marginBottom: 2,
+  },
+  langOptionActive: {
+    backgroundColor: '#FEE2E2',
+  },
+  langOptionText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+  },
+  langOptionTextActive: {
+    color: '#DC2626',
+    fontWeight: 'bold',
   },
   profileCard: {
     backgroundColor: COLORS.primary,

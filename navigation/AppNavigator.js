@@ -29,6 +29,9 @@ import StatisticsScreen from '../screens/StatisticsScreen';
 import TodoDetailScreen from '../screens/TodoDetailScreen';
 import WaterTrackerScreen from '../screens/WaterTrackerScreen';
 
+// AI Screen import et
+import AiMainScreen from '../app/ai/index';
+
 // Custom Tab Bar bileşenimizi import et
 import BottomTabBar from '../components/BottomTabBar';
 import { useAuth } from '../context/AuthContext';
@@ -212,6 +215,7 @@ export default function AppNavigator() {
             <Stack.Screen name="Statistics" component={StatisticsScreen} />
             <Stack.Screen name="TodoDetail" component={TodoDetailScreen} />
             <Stack.Screen name="EventDetail" component={EventDetailScreen} />
+            <Stack.Screen name="ai" component={AiMainScreen} />
           </>
         ) : (
           <>
