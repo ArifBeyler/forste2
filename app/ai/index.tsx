@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { CommonActions } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -13,7 +14,7 @@ import { useLanguage } from '../../context/LanguageContext';
 
 const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
 
-export default function AiMainScreen() {
+export default function AiMainScreen({ navigation }) {
   const { t } = useLanguage();
   const router = useRouter();
   
@@ -62,16 +63,64 @@ export default function AiMainScreen() {
   });
 
   function navigateTo(screen: string) {
-    router.push(`/ai/${screen}`);
+    try {
+      router.push(`/ai/${screen}`);
+    } catch (error) {
+      console.log('Yönlendirme hatası:', error);
+    }
   }
 
   function goBack() {
-    router.back();
+    try {
+      // Önce navigation nesnesinin hazır olup olmadığını kontrol et
+      const isNavigationReady = navigation && typeof navigation.canGoBack === 'function';
+      
+      // React Navigation ile geri dönmeyi dene (eğer hazırsa)
+      if (isNavigationReady && navigation.canGoBack()) {
+        navigation.goBack();
+        return;
+      }
+      
+      // Expo Router ile geri dönmeyi dene
+      router.back();
+    } catch (error) {
+      console.log('Geri gitme hatası:', error);
+      
+      // Son çare olarak ana ekrana yönlendir
+      goToHome();
+    }
   }
 
   // Ana sayfaya gitme fonksiyonu
   function goToHome() {
-    router.push("/");
+    try {
+      // React Navigation ile ana sayfaya dön (eğer mümkünse)
+      const isNavigationReady = navigation && typeof navigation.dispatch === 'function';
+      
+      if (isNavigationReady) {
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: 'Main' }]
+          })
+        );
+        return;
+      }
+      
+      // Eğer React Navigation başarısız olursa expo-router kullan
+      router.replace('/');
+    } catch (error) {
+      console.log('Ana sayfaya yönlendirme hatası:', error);
+      
+      // Son çare olarak bir daha React Navigation dene
+      if (navigation) {
+        try {
+          navigation.navigate('Home');
+        } catch (err) {
+          console.log('İkinci yönlendirme denemesi başarısız:', err);
+        }
+      }
+    }
   }
 
   // Her bir kart için gecikmeli animasyon

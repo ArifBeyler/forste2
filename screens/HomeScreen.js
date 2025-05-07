@@ -1,9 +1,11 @@
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, {
+    FadeInDown,
     useAnimatedStyle,
     useSharedValue,
     withDelay,
@@ -60,6 +62,28 @@ const COLORS = {
   textLight: '#6c757d',
 };
 
+// Animasyon süresi ve gecikme değerleri (yukarıdan aşağıya sırayla)
+const ANIMATION = {
+  baseDuration: 600,
+  baseDelay: 100,
+  delayIncrement: 120
+};
+
+// Özel AnimatedSection bileşeni
+const AnimatedSection = ({ children, index, style }) => {
+  // Animasyon gecikmesini hesapla
+  const delay = ANIMATION.baseDelay + (index * ANIMATION.delayIncrement);
+  
+  return (
+    <Animated.View 
+      style={style}
+      entering={FadeInDown.delay(delay).duration(ANIMATION.baseDuration).springify()}
+    >
+      {children}
+    </Animated.View>
+  );
+};
+
 export default function HomeScreen() {
   const { user, refreshUser } = useAuth();
   const { events, refresh: refreshCalendar, toggleTaskComplete } = useCalendar(); // Takvim verilerini al ve toggleTaskComplete fonksiyonunu alalım
@@ -84,6 +108,9 @@ export default function HomeScreen() {
   const notesDescOpacity = useSharedValue(1);
   const journalDescOpacity = useSharedValue(1);
   const projectDescOpacity = useSharedValue(1);
+  
+  // Her sayfayı yeniden ziyaret ettiğimizde animasyonları tetiklemek için
+  const [animationKey, setAnimationKey] = useState(0);
 
   // Sayfa yüklendiğinde kullanıcı bilgilerini çek
   useEffect(() => {
@@ -136,6 +163,9 @@ export default function HomeScreen() {
   // Sayfa fokuslandığında etkinlikleri yenile
   useFocusEffect(
     React.useCallback(() => {
+      // Animasyon durumunu yenile - bu içeriğin yeniden yukarıdan aşağı animasyonla gelmesini sağlar
+      setAnimationKey(prev => prev + 1);
+      
       // Takvim verilerini yenile
       refreshCalendar();
       // En yakın etkinliği bul
@@ -253,7 +283,7 @@ export default function HomeScreen() {
     
     const now = new Date();
     
-    // Bugün ve gelecek etkinlikleri filtrele
+    // Bugün ve gelecek etkinlikleri/görevleri filtrele
     const futureEvents = events.filter(event => {
       // Etkinlik tarihini al (gün değeri)
       const eventDay = event.day;
@@ -261,8 +291,6 @@ export default function HomeScreen() {
       
       // Gün değerini tarihe çevir
       const today = now.getDate();
-      const currentMonth = now.getMonth() + 1;
-      const currentYear = now.getFullYear();
       
       // Etkinlik günü bugün ve ilerisi mi kontrol et
       return eventDay >= today;
@@ -291,34 +319,38 @@ export default function HomeScreen() {
     setNextEvent(sortedEvents[0]);
   };
 
-  // Animasyon stilleri
-  const welcomeAnimatedStyle = useAnimatedStyle(() => {
+  // Karşılama mesajı için animasyon stili
+  const welcomeTextStyle = useAnimatedStyle(() => {
     return {
-      opacity: welcomeOpacity.value
+      opacity: welcomeOpacity.value,
     };
   });
   
-  const waterDescAnimatedStyle = useAnimatedStyle(() => {
+  // Su hatırlatıcısı için animasyon stili
+  const waterDescStyle = useAnimatedStyle(() => {
     return {
-      opacity: waterDescOpacity.value
+      opacity: waterDescOpacity.value,
     };
   });
   
-  const notesDescAnimatedStyle = useAnimatedStyle(() => {
+  // Notlar için animasyon stili
+  const notesDescStyle = useAnimatedStyle(() => {
     return {
-      opacity: notesDescOpacity.value
+      opacity: notesDescOpacity.value,
     };
   });
   
-  const journalDescAnimatedStyle = useAnimatedStyle(() => {
+  // Günlük için animasyon stili
+  const journalDescStyle = useAnimatedStyle(() => {
     return {
-      opacity: journalDescOpacity.value
+      opacity: journalDescOpacity.value,
     };
   });
   
-  const projectDescAnimatedStyle = useAnimatedStyle(() => {
+  // Proje için animasyon stili
+  const projectDescStyle = useAnimatedStyle(() => {
     return {
-      opacity: projectDescOpacity.value
+      opacity: projectDescOpacity.value,
     };
   });
   
@@ -412,214 +444,181 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.content}>
-          {/* Başlık bölümü */}
-          <View style={styles.header}>
+      
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.content} key={`animation-key-${animationKey}`}>
+          {/* Karşılama Bölümü */}
+          <AnimatedSection index={0} style={styles.header}>
             <View>
-              <Animated.Text style={[styles.headerTag, welcomeAnimatedStyle]}>
+              <Animated.Text style={[styles.headerTag, welcomeTextStyle]}>
                 {welcomeMessages[currentWelcomeIndex]}
               </Animated.Text>
-              <Text style={styles.headerTitle}>{userName}</Text>
+              <Text style={styles.headerTitle}>Merhaba, {userName}</Text>
             </View>
-            <TouchableOpacity style={styles.profileButton}>
-              <View style={styles.profileAvatar} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Görev bölümü - En yakın etkinlik */}
-          <View style={styles.taskSection}>
+            
             <TouchableOpacity 
-              style={[
-                styles.taskItem,
-                nextEvent && { borderColor: nextEvent.color || '#3B82F6' }
-              ]}
-              onPress={() => {
-                if (nextEvent) {
-                  // Etkinlik detayına git
-                  if (nextEvent.type === 'todo') {
-                    navigation.navigate('TodoDetail', { 
-                      todo: nextEvent,
-                      onToggleComplete: handleToggleTask
-                    });
+              style={styles.notificationButton}
+              onPress={() => navigation.navigate('Notifications')}
+            >
+              <Ionicons name="notifications-outline" size={24} color="#333333" />
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>3</Text>
+              </View>
+            </TouchableOpacity>
+          </AnimatedSection>
+          
+          {/* Yaklaşan Öğe (Etkinlik veya Görev) */}
+          <AnimatedSection index={1} style={styles.sectionContainer}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Yaklaşan</Text>
+            </View>
+            
+            {nextEvent ? (
+              <TouchableOpacity 
+                style={styles.nextEventCard}
+                onPress={() => {
+                  // Tür kontrolü ile doğru ekrana yönlendirme
+                  if (nextEvent.type === 'task') {
+                    handleToggleTask(nextEvent.id, nextEvent.completed);
                   } else {
                     navigation.navigate('EventDetail', { event: nextEvent });
                   }
-                } else {
-                  // Etkinlik yoksa takvim ekranına git
-                  navigation.navigate('Calendar');
-                }
-              }}
-            >
-              <View style={styles.taskRow}>
-                {nextEvent ? (
-                  <>
-                    <View style={styles.taskContent}>
-                      <Text style={[
-                        styles.taskTitlePrimary, 
-                        { color: nextEvent.color || '#3B82F6' }
-                      ]}>{nextEvent.title}</Text>
-                      <Text style={styles.taskSubtitle}>{getEventTimeText(nextEvent)}</Text>
-                    </View>
-                    
-                    {nextEvent.type === 'todo' ? (
-                      // Eğer yapılacak görevse checkbox göster
-                      <TouchableOpacity 
-                        style={styles.taskCheckboxContainer}
+                }}
+              >
+                <View style={[styles.eventIndicator, { backgroundColor: nextEvent.color || '#7E57C2' }]} />
+                <View style={styles.eventContent}>
+                  <Text style={styles.eventTitle} numberOfLines={1}>{nextEvent.title}</Text>
+                  <View style={styles.eventDetailRow}>
+                    <Text style={styles.eventTime}>{getEventTimeText(nextEvent)}</Text>
+                    {nextEvent.type === 'task' && (
+                      <View style={styles.eventTypeTag}>
+                        <Text style={styles.eventTypeText}>Görev</Text>
+                      </View>
+                    )}
+                    {nextEvent.type !== 'task' && (
+                      <View style={[styles.eventTypeTag, styles.eventTypeTagEvent]}>
+                        <Text style={[styles.eventTypeText, styles.eventTypeTextEvent]}>Etkinlik</Text>
+                      </View>
+                    )}
+                  </View>
+                  
+                  {/* Görevse checkbox göster */}
+                  {nextEvent.type === 'task' && (
+                    <View style={styles.taskCheckboxContainer}>
+                      <TouchableOpacity
                         onPress={(e) => {
-                          e.stopPropagation(); // Ana kartın onPress'ini tetikleme
+                          e.stopPropagation();
                           handleToggleTask(nextEvent.id, nextEvent.completed);
                         }}
                       >
-                        <View style={[
-                          styles.taskCheckbox,
-                          nextEvent.completed && [styles.taskCheckboxCompleted, { backgroundColor: nextEvent.color || '#3B82F6' }]
-                        ]}>
-                          {nextEvent.completed && (
-                            <Text style={styles.taskCheckboxIcon}>✓</Text>
+                        <View style={styles.taskCheckbox}>
+                          {nextEvent.completed ? (
+                            <View style={styles.taskCheckboxChecked}>
+                              <Ionicons name="checkmark" size={15} color="white" />
+                            </View>
+                          ) : (
+                            <View style={styles.taskCheckboxUnchecked} />
                           )}
                         </View>
                       </TouchableOpacity>
-                    ) : (
-                      // Etkinlikse ok butonu göster
-                      <TouchableOpacity 
-                        style={[
-                          styles.taskCheckButton,
-                          { backgroundColor: nextEvent.color || '#3B82F6' }
-                        ]}
-                      >
-                        <Text style={styles.taskCheckText}>→</Text>
-                      </TouchableOpacity>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <View style={styles.taskContent}>
-                      <Text style={styles.taskTitlePrimary}>Planlanmış etkinlik yok</Text>
-                      <Text style={styles.taskSubtitle}>Yeni etkinlik eklemek için takvime gidin</Text>
-                    </View>
-                    <TouchableOpacity 
-                      style={styles.taskCheckButton}
-                      onPress={() => navigation.navigate('Calendar')}
-                    >
-                      <Text style={styles.taskCheckText}>+</Text>
-                    </TouchableOpacity>
-                  </>
-                )}
-              </View>
-            </TouchableOpacity>
-          </View>
-
-          {/* Plan bölümü */}
-          <View style={styles.planSection}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Plan</Text>
-              <View style={styles.sectionDivider} />
-            </View>
-
-            {/* Su hatırlatıcısı */}
-            <TouchableOpacity 
-              style={styles.planItemBlue}
-              onPress={() => navigation.navigate('WaterTracker')}
-            >
-              <View style={styles.planRow}>
-                <View style={styles.planIconBlue}>
-                  <Text style={styles.planIconText}>💧</Text>
-                </View>
-                <View style={styles.planContent}>
-                  <Text style={styles.planTitleBlue}>Su hatırlatıcısı</Text>
-                  <Animated.Text style={[styles.planSubtitle, waterDescAnimatedStyle]}>
-                    {getWaterStatusText()}
-                  </Animated.Text>
-                  
-                  {/* Su ilerleme çubuğu */}
-                  {totalWaterIntake > 0 && (
-                    <View style={styles.waterProgressContainer}>
-                      <View style={[styles.waterProgressBar, { width: `${waterProgress * 100}%` }]} />
+                      <Text style={styles.taskCheckboxLabel}>
+                        {nextEvent.completed ? 'Tamamlandı' : 'Tamamla'}
+                      </Text>
                     </View>
                   )}
                 </View>
-                <TouchableOpacity 
-                  style={styles.planAddButtonBlue}
-                  onPress={() => navigation.navigate('WaterTracker')}
-                >
-                  <Text style={styles.planAddTextBlue}>+</Text>
-                </TouchableOpacity>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.emptyStateContainer}>
+                <Text style={styles.emptyStateText}>Yaklaşan etkinlik veya görev bulunmuyor.</Text>
               </View>
-            </TouchableOpacity>
-
-            {/* Notlar */}
-            <TouchableOpacity 
-              style={styles.planItemOrange}
-              onPress={() => navigation.navigate('Notes')}
-            >
-              <View style={styles.planRow}>
-                <View style={styles.planIconOrange}>
-                  <Text style={styles.planIconText}>📝</Text>
+            )}
+          </AnimatedSection>
+          
+          {/* Planlar */}
+          <AnimatedSection index={2} style={styles.sectionContainer}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Planlar</Text>
+            </View>
+            
+            <View style={styles.planList}>
+              {/* Su Hatırlatıcı */}
+              <TouchableOpacity 
+                style={[styles.planItem, styles.planItemBlue]}
+                onPress={() => navigation.navigate('WaterTracker')}
+              >
+                <View style={styles.planIconContainer}>
+                  <View style={[styles.planIcon, styles.planIconBlue]}>
+                    <Ionicons name="water-outline" size={20} color="#3B82F6" />
+                  </View>
+                </View>
+                <View style={styles.planContent}>
+                  <Text style={styles.planTitleBlue}>Su hatırlatıcısı</Text>
+                  <Animated.Text style={[styles.planSubtitle, waterDescStyle]}>
+                    {getWaterStatusText()}
+                  </Animated.Text>
+                </View>
+              </TouchableOpacity>
+              
+              {/* Notlar */}
+              <TouchableOpacity 
+                style={[styles.planItem, styles.planItemOrange]}
+                onPress={() => navigation.navigate('Notes')}
+              >
+                <View style={styles.planIconContainer}>
+                  <View style={[styles.planIcon, styles.planIconOrange]}>
+                    <Ionicons name="document-text-outline" size={20} color="#F59E0B" />
+                  </View>
                 </View>
                 <View style={styles.planContent}>
                   <Text style={styles.planTitleOrange}>Notlar</Text>
-                  <Animated.Text style={[styles.planSubtitle, notesDescAnimatedStyle]}>
+                  <Animated.Text style={[styles.planSubtitle, notesDescStyle]}>
                     {planDescriptions.notes[currentDescriptions.notes]}
                   </Animated.Text>
                 </View>
-                <TouchableOpacity 
-                  style={styles.planAddButtonOrange}
-                  onPress={() => navigation.navigate('Notes')}
-                >
-                  <Text style={styles.planAddTextOrange}>+</Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-
-            {/* Günlük */}
-            <TouchableOpacity 
-              style={styles.planItemPink}
-              onPress={() => navigation.navigate('Journal')}
-            >
-              <View style={styles.planRow}>
-                <View style={styles.planIconPink}>
-                  <Text style={styles.planIconText}>📔</Text>
+              </TouchableOpacity>
+              
+              {/* Günlük */}
+              <TouchableOpacity 
+                style={[styles.planItem, styles.planItemPink]}
+                onPress={() => navigation.navigate('Journal')}
+              >
+                <View style={styles.planIconContainer}>
+                  <View style={[styles.planIcon, styles.planIconPink]}>
+                    <Ionicons name="book-outline" size={20} color="#EC4899" />
+                  </View>
                 </View>
                 <View style={styles.planContent}>
                   <Text style={styles.planTitlePink}>Günlük</Text>
-                  <Animated.Text style={[styles.planSubtitle, journalDescAnimatedStyle]}>
+                  <Animated.Text style={[styles.planSubtitle, journalDescStyle]}>
                     {planDescriptions.journal[currentDescriptions.journal]}
                   </Animated.Text>
                 </View>
-                <TouchableOpacity 
-                  style={styles.planAddButtonPink}
-                  onPress={() => navigation.navigate('Journal')}
-                >
-                  <Text style={styles.planAddTextPink}>+</Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-
-            {/* Proje */}
-            <TouchableOpacity 
-              style={styles.planItemGreen}
-              onPress={() => navigation.navigate('Projects')}
-            >
-              <View style={styles.planRow}>
-                <View style={styles.planIconGreen}>
-                  <Text style={styles.planIconText}>📁</Text>
+              </TouchableOpacity>
+              
+              {/* Proje */}
+              <TouchableOpacity 
+                style={[styles.planItem, styles.planItemGreen]}
+                onPress={() => navigation.navigate('Projects')}
+              >
+                <View style={styles.planIconContainer}>
+                  <View style={[styles.planIcon, styles.planIconGreen]}>
+                    <Ionicons name="folder-outline" size={20} color="#10B981" />
+                  </View>
                 </View>
                 <View style={styles.planContent}>
                   <Text style={styles.planTitleGreen}>Proje</Text>
-                  <Animated.Text style={[styles.planSubtitle, projectDescAnimatedStyle]}>
+                  <Animated.Text style={[styles.planSubtitle, projectDescStyle]}>
                     {planDescriptions.project[currentDescriptions.project]}
                   </Animated.Text>
                 </View>
-                <TouchableOpacity 
-                  style={styles.planAddButtonGreen}
-                  onPress={() => navigation.navigate('Projects')}
-                >
-                  <Text style={styles.planAddTextGreen}>+</Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          </View>
+              </TouchableOpacity>
+            </View>
+          </AnimatedSection>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -631,26 +630,31 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
+  scrollView: {
+    flex: 1,
+  },
   scrollContent: {
     flexGrow: 1,
+    padding: 16,
   },
   content: {
-    padding: 24
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24
+    marginBottom: 24,
   },
   headerTag: {
-    color: '#4B5563',
-    fontSize: 14
+    fontSize: 14,
+    color: COLORS.primary,
+    marginBottom: 8,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#1F2937'
+    color: COLORS.text,
   },
   profileButton: {
     width: 48,
@@ -670,17 +674,10 @@ const styles = StyleSheet.create({
     marginBottom: 32
   },
   taskItem: {
-    backgroundColor: COLORS.background,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 0.5,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
   },
   taskRow: {
     flexDirection: 'row',
@@ -715,16 +712,30 @@ const styles = StyleSheet.create({
   planSection: {
     marginBottom: 24
   },
+  sectionContainer: {
+    marginBottom: 24,
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+  },
   sectionHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16
+    alignItems: 'center',
+    marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1F2937'
+    fontWeight: '600',
+    color: COLORS.text,
   },
   sectionDivider: {
     height: 1,
@@ -732,37 +743,97 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 16
   },
-  planRow: {
-    flexDirection: 'row',
-    alignItems: 'center'
+  planList: {
+    flexDirection: 'column',
   },
-  // Blue Item
-  planItemBlue: {
-    backgroundColor: '#EFF6FF',
+  planItem: {
+    flexDirection: 'row',
+    backgroundColor: '#FFF',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 16,
-    borderWidth: 2,
-    borderColor: '#BFDBFE',
-    shadowColor: '#3B82F6',
-    shadowOffset: { width: 0, height: 2 },
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
     shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 5,
+    elevation: 8,
+    marginBottom: 12, // Alt alta sıralanması için
   },
-  planIconBlue: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
-    backgroundColor: '#3B82F6',
+  planItemBlue: {
+    borderColor: '#DBEAFE',
+    shadowColor: '#3B82F6',
+    backgroundColor: '#F5F9FF',
+  },
+  planItemOrange: {
+    borderColor: '#FEF3C7', 
+    shadowColor: '#F59E0B',
+    backgroundColor: '#FFFAF0',
+  },
+  planItemPink: {
+    borderColor: '#FCE7F3',
+    shadowColor: '#EC4899',
+    backgroundColor: '#FDF2F8',
+  },
+  planItemGreen: {
+    borderColor: '#D1FAE5',
+    shadowColor: '#10B981',
+    backgroundColor: '#F0FDF4',
+  },
+  planIconContainer: {
+    marginRight: 16,
+  },
+  planIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12
+  },
+  planIconBlue: {
+    backgroundColor: '#EBF5FF',
+  },
+  planIconOrange: {
+    backgroundColor: '#FEF3C7',
+  },
+  planIconPink: {
+    backgroundColor: '#FCE7F3',
+  },
+  planIconGreen: {
+    backgroundColor: '#D1FAE5',
   },
   planTitleBlue: {
-    color: '#2563EB',
-    fontWeight: '500',
-    fontSize: 16
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#3B82F6',
+    marginBottom: 6,
+  },
+  planTitleOrange: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#F59E0B',
+    marginBottom: 6,
+  },
+  planTitlePink: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#EC4899',
+    marginBottom: 6,
+  },
+  planTitleGreen: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#10B981',
+    marginBottom: 6,
+  },
+  planSubtitle: {
+    fontSize: 14,
+    color: COLORS.textLight,
+    lineHeight: 20,
   },
   planAddButtonBlue: {
     width: 40,
@@ -782,34 +853,6 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: '#3B82F6'
   },
-  // Orange Item
-  planItemOrange: {
-    backgroundColor: '#FFF7ED',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 2,
-    borderColor: '#FFEDD5',
-    shadowColor: '#F97316',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  planIconOrange: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
-    backgroundColor: '#F97316',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12
-  },
-  planTitleOrange: {
-    color: '#EA580C',
-    fontWeight: '500',
-    fontSize: 16
-  },
   planAddButtonOrange: {
     width: 40,
     height: 40,
@@ -828,34 +871,6 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: '#F97316'
   },
-  // Pink Item
-  planItemPink: {
-    backgroundColor: '#FDF2F8',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 2,
-    borderColor: '#FCE7F3',
-    shadowColor: '#EC4899',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  planIconPink: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
-    backgroundColor: '#EC4899',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12
-  },
-  planTitlePink: {
-    color: '#DB2777',
-    fontWeight: '500',
-    fontSize: 16
-  },
   planAddButtonPink: {
     width: 40,
     height: 40,
@@ -873,34 +888,6 @@ const styles = StyleSheet.create({
   planAddTextPink: {
     fontSize: 24,
     color: '#EC4899'
-  },
-  // Green Item
-  planItemGreen: {
-    backgroundColor: '#F0FDF4',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 2,
-    borderColor: '#DCFCE7',
-    shadowColor: '#166534',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  planIconGreen: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
-    backgroundColor: '#15803D',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12
-  },
-  planTitleGreen: {
-    color: '#166534',
-    fontWeight: '500',
-    fontSize: 16
   },
   planAddButtonGreen: {
     width: 40,
@@ -921,14 +908,7 @@ const styles = StyleSheet.create({
     color: '#15803D'
   },
   planContent: {
-    flex: 1
-  },
-  planSubtitle: {
-    color: '#4B5563',
-    fontSize: 14
-  },
-  planIconText: {
-    fontSize: 24
+    flex: 1,
   },
   waterProgressContainer: {
     width: '100%',
@@ -943,28 +923,145 @@ const styles = StyleSheet.create({
     backgroundColor: '#3B82F6',
     borderRadius: 3,
   },
-  // Yapılacak görev checkbox stillerini ekle
-  taskCheckboxContainer: {
-    justifyContent: 'center',
-    marginLeft: 12,
-  },
   taskCheckbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    borderWidth: 1.5,
-    borderColor: '#3B82F6',
-    justifyContent: 'center',
+    marginRight: 12,
+  },
+  taskCheckboxUnchecked: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+  },
+  taskCheckboxChecked: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#7E57C2',
     alignItems: 'center',
-    backgroundColor: '#F5F8FF',
+    justifyContent: 'center',
   },
-  taskCheckboxCompleted: {
-    backgroundColor: '#3B82F6',
-    borderColor: '#3B82F6',
+  taskCheckboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
   },
-  taskCheckboxIcon: {
-    color: 'white',
+  taskCheckboxLabel: {
+    fontSize: 14,
+    color: COLORS.textLight,
+    marginLeft: 8,
+  },
+  eventDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  eventTypeTag: {
+    backgroundColor: '#EEF2FF',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginLeft: 8,
+    shadowColor: '#6366F1',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+    elevation: 1,
+  },
+  eventTypeTagEvent: {
+    backgroundColor: '#F0F9FF',
+    shadowColor: '#0EA5E9',
+  },
+  eventTypeText: {
+    fontSize: 12,
+    color: '#6366F1', // indigo
+    fontWeight: '500',
+  },
+  eventTypeTextEvent: {
+    color: '#0EA5E9', // sky
+  },
+  emptyStateContainer: {
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyStateText: {
+    fontSize: 14,
+    color: COLORS.textLight,
+    textAlign: 'center',
+  },
+  taskList: {
+    marginBottom: 8,
+  },
+  taskText: {
     fontSize: 16,
+    color: COLORS.text,
+  },
+  taskTextCompleted: {
+    textDecorationLine: 'line-through',
+    color: COLORS.textLight,
+  },
+  nextEventCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9F7FF',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E9E3FF',
+    shadowColor: '#7E57C2',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 5,
+    elevation: 8,
+  },
+  eventIndicator: {
+    width: 8,
+    height: 40,
+    borderRadius: 4,
+    marginRight: 12,
+  },
+  eventContent: {
+    flex: 1,
+  },
+  eventTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  eventTime: {
+    fontSize: 14,
+    color: COLORS.textLight,
+  },
+  notificationButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: '#FF6B6B',
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
+  notificationBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
     fontWeight: 'bold',
   },
 }); 

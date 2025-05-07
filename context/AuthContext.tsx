@@ -21,6 +21,7 @@ interface AuthContextType {
   session: Session | null;
   user: User | null;
   loading: boolean;
+  isReady: boolean;
   isRegistrationComplete: boolean;
   signUp: (email: string, password: string, name: string, birthdate: string) => Promise<{
     success: boolean;
@@ -342,6 +343,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children, navigate, 
         session,
         user,
         loading,
+        isReady: initialized,
         isRegistrationComplete,
         signUp,
         signIn,

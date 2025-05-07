@@ -10,11 +10,16 @@ const TODOS_STORAGE_KEY = 'calendar_todos';
 // Supabase bağlantı durumunu kontrol etmek için yardımcı fonksiyon
 const checkSupabaseConnection = async () => {
   try {
-    // Basit bir sorgu ile bağlantıyı test et
-    const { data, error } = await supabase.from('events').select('id').limit(1);
+    if (!supabase || typeof supabase.from !== 'function') {
+      console.error('Supabase istemcisi düzgün yüklenemedi');
+      return false;
+    }
     
-    if (error) {
-      console.error('Supabase bağlantı testi başarısız:', error.message);
+    // Basit bir sorgu ile bağlantıyı test et
+    const result = await supabase.from('events').select('id').limit(1);
+    
+    if (result.error) {
+      console.error('Supabase bağlantı testi başarısız:', result.error.message);
       return false;
     }
     
@@ -702,52 +707,116 @@ export const CalendarProvider: React.FC<CalendarProviderProps> = ({ children }) 
     }
   }, [events, isOnline]);
 
-  // Görev tamamlama durumunu değiştir
+  // Toggle task complete
   const toggleTaskComplete = useCallback(async (id: string, isCompleted: boolean): Promise<{ success: boolean; error: string | null }> => {
     try {
-      console.log(`Görev tamamlama durumu değiştiriliyor, ID: ${id}, Durum: ${isCompleted}`);
+      console.log(`Görev tamamlama işlemi başlatılıyor, ID: ${id}, Tamamlanma Durumu: ${isCompleted}`);
       
-      // Görevi güncelle
-      return await updateEvent(id, { completed: isCompleted });
+      if (!id) {
+        console.error('Tamamlanacak görev ID\'si belirtilmemiş');
+        return { success: false, error: 'Geçersiz ID: Tamamlanacak görev ID\'si belirtilmemiş' };
+      }
+      
+      // Görev bul
+      const taskToUpdate = events.find(item => item.id === id && item.type === 'todo');
+      if (!taskToUpdate) {
+        console.error(`Tamamlanacak görev bulunamadı, ID: ${id}`);
+        console.log('Mevcut görevler:', JSON.stringify(events.filter(e => e.type === 'todo').map(e => ({ id: e.id, title: e.title })), null, 2));
+        return { success: false, error: 'Tamamlanacak görev bulunamadı' };
+      }
+      
+      // Görev güncelle
+      const updatedTask = {
+        ...taskToUpdate,
+        completed: isCompleted
+      };
+      
+      // Yerel state'i güncelle
+      setEvents(prev => {
+        const filtered = prev.filter(item => item.id !== id);
+        const updated = [...filtered, updatedTask];
+        console.log(`Önceki görev sayısı: ${prev.length}, Yeni görev sayısı: ${updated.length}`);
+        return updated;
+      });
+      
+      setActiveEvents(prev => {
+        const filtered = prev.filter(item => item.id !== id);
+        const updated = [...filtered, updatedTask];
+        console.log(`Önceki aktif görev sayısı: ${prev.length}, Yeni aktif görev sayısı: ${updated.length}`);
+        return updated;
+      });
+      
+      console.log("Uygulama state güncellemesi tamamlandı");
+      
+      // Yerel olarak güncelle
+      const localTodos = await storage.getItems<Task>(TODOS_STORAGE_KEY);
+      const updatedTodos = localTodos.map(item => 
+        item.id === id ? updatedTask : item
+      );
+      
+      await storage.saveItems(TODOS_STORAGE_KEY, updatedTodos);
+      console.log("Yerel depolama güncellendi");
+      
+      // Çevrimiçiyse ve yerel önbelleklenmiş bir öğe değilse, Supabase'de de güncelle
+      if (isOnline && !id.startsWith('local_')) {
+        console.log("Çevrimiçi olduğundan Supabase'de de güncelleniyor...");
+        
+        try {
+          // eventApi kontrolü
+          if (!eventApi || !eventApi.todos) {
+            throw new Error("Supabase API bağlantısı hazır değil");
+          }
+          
+          const result = await eventApi.todos.update(id, { completed: isCompleted });
+          
+          if (result.error) {
+            console.error('Supabase güncelleme hatası:', result.error);
+          } else {
+            console.log("Supabase güncellemesi başarılı");
+          }
+        } catch (supabaseError) {
+          console.error('Supabase güncellemesi sırasında hata:', supabaseError);
+        }
+      }
+      
+      console.log(`Görev (ID: ${id}) başarıyla güncellendi`);
+      return { success: true, error: null };
     } catch (error) {
-      console.error('Görev durumu değiştirilirken hata:', error);
+      console.error('Görev güncellenirken hata:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Bilinmeyen bir hata oluştu' 
       };
     }
-  }, [updateEvent]);
-
-  // Context değerleri
-  const value: CalendarContextType = {
-    events,
-    activeEvents,
-    selectedDay,
-    isOnline,
-    loading,
-    
-    setSelectedDay,
-    refresh,
-    fetchByDay,
-    addEvent,
-    addTask,
-    updateEvent,
-    deleteEvent,
-    toggleTaskComplete,
-  };
+  }, [events, isOnline]);
 
   return (
-    <CalendarContext.Provider value={value}>
+    <CalendarContext.Provider
+      value={{
+        events,
+        activeEvents,
+        selectedDay,
+        isOnline,
+        loading,
+        setSelectedDay,
+        refresh,
+        fetchByDay,
+        addEvent,
+        addTask,
+        updateEvent,
+        deleteEvent,
+        toggleTaskComplete
+      }}
+    >
       {children}
     </CalendarContext.Provider>
   );
 };
 
-// Context kullanım hook'u
-export const useCalendar = (): CalendarContextType => {
+export const useCalendar = () => {
   const context = useContext(CalendarContext);
   if (context === undefined) {
     throw new Error('useCalendar must be used within a CalendarProvider');
   }
   return context;
-}; 
+};

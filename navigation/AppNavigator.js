@@ -1,8 +1,8 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { NavigationContainer } from '@react-navigation/native';
+import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import React from 'react';
-import { Easing } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Easing, View } from 'react-native';
 import { createSharedElementStackNavigator } from 'react-navigation-shared-element';
 
 // Ekranları import et
@@ -20,6 +20,7 @@ import JournalScreen from '../screens/JournalScreen';
 import LoginScreen from '../screens/LoginScreen';
 import NotesDetailScreen from '../screens/NotesDetailScreen';
 import NotesScreen from '../screens/NotesScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ProjectDetailScreen from '../screens/ProjectDetailScreen';
@@ -192,35 +193,166 @@ function AuthStack() {
   );
 }
 
+// Özel tema
+const forsteTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    background: '#FFFFFF',
+    card: '#FFFFFF',
+    text: '#333333',
+    border: '#F0F0F0',
+    primary: '#7E57C2',
+  },
+};
+
 // Ana Navigator
 export default function AppNavigator() {
-  const { user } = useAuth();
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [userState, setUserState] = useState(null);
+  
+  // useAuth hook'unu try-catch bloğu içinde çağır
+  let authContext = null;
+  try {
+    authContext = useAuth();
+  } catch (error) {
+    console.error('useAuth hook hatası:', error);
+  }
+
+  useEffect(() => {
+    // authContext null değilse ve isReady true ise
+    if (authContext && authContext.isReady) {
+      setIsAuthReady(true);
+      setUserState(authContext.user);
+    }
+  }, [authContext]);
+
+  // Auth durumu hazır değilse yükleniyor göster
+  if (!isAuthReady) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#7E57C2" />
+      </View>
+    );
+  }
   
   return (
-    <NavigationContainer>
+    <NavigationContainer theme={forsteTheme}>
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
+          cardStyle: { backgroundColor: '#FFFFFF' },
         }}
       >
-        {user ? (
+        {userState ? (
           <>
-            <Stack.Screen name="Main" component={TabNavigator} />
-            <Stack.Screen name="Projects" component={ProjectsStack} />
-            <Stack.Screen name="WaterTracker" component={WaterTrackerScreen} />
-            <Stack.Screen name="Notes" component={NotesScreen} />
-            <Stack.Screen name="NotesDetail" component={NotesDetailScreen} />
-            <Stack.Screen name="Journal" component={JournalScreen} />
-            <Stack.Screen name="JournalDetail" component={JournalDetailScreen} />
-            <Stack.Screen name="Statistics" component={StatisticsScreen} />
-            <Stack.Screen name="TodoDetail" component={TodoDetailScreen} />
-            <Stack.Screen name="EventDetail" component={EventDetailScreen} />
-            <Stack.Screen name="ai" component={AiMainScreen} />
+            <Stack.Screen 
+              name="Main" 
+              component={TabNavigator} 
+              options={{
+                animation: 'fade',
+              }}
+            />
+            <Stack.Screen 
+              name="Projects" 
+              component={ProjectsStack}
+              options={{
+                animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen 
+              name="WaterTracker" 
+              component={WaterTrackerScreen} 
+              options={{
+                animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen 
+              name="Notes" 
+              component={NotesScreen}
+              options={{
+                animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen 
+              name="NotesDetail" 
+              component={NotesDetailScreen}
+              options={{
+                animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen 
+              name="Journal" 
+              component={JournalScreen}
+              options={{
+                animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen 
+              name="JournalDetail" 
+              component={JournalDetailScreen}
+              options={{
+                animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen 
+              name="Notifications" 
+              component={NotificationsScreen}
+              options={{
+                animation: 'slide_from_right',
+                gestureEnabled: true,
+                gestureDirection: 'horizontal',
+              }}
+            />
+            <Stack.Screen 
+              name="Statistics" 
+              component={StatisticsScreen}
+              options={{
+                animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen 
+              name="TodoDetail" 
+              component={TodoDetailScreen}
+              options={{
+                animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen 
+              name="EventDetail" 
+              component={EventDetailScreen}
+              options={{
+                animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen 
+              name="ai" 
+              component={AiMainScreen} 
+              options={{
+                presentation: 'card',
+                animationTypeForReplace: 'push',
+                animation: 'slide_from_right',
+                gestureEnabled: true,
+                gestureDirection: 'horizontal',
+              }}
+            />
           </>
         ) : (
           <>
-            <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-            <Stack.Screen name="Auth" component={AuthStack} />
+            <Stack.Screen 
+              name="Onboarding" 
+              component={OnboardingScreen}
+              options={{
+                animation: 'fade',
+              }}
+            />
+            <Stack.Screen 
+              name="Auth" 
+              component={AuthStack}
+              options={{
+                animation: 'slide_from_right',
+              }}
+            />
           </>
         )}
       </Stack.Navigator>

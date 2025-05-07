@@ -69,7 +69,13 @@ const BottomTabBar = ({ state, descriptors, navigation }) => {
   const toggleFabMenu = () => {
     // Eğer aktif ekran Calendar değilse normal Chat sayfasına git
     if (state.index !== 1) {
-      navigation.navigate('ai');
+      try {
+        navigation.navigate('ai');
+      } catch (error) {
+        console.log('AI ekranına yönlendirme hatası:', error);
+        // Alternatif yönlendirme - ana ekrana yönlendir
+        navigation.navigate('Home');
+      }
       return;
     }
     
@@ -245,7 +251,13 @@ const BottomTabBar = ({ state, descriptors, navigation }) => {
           style={[styles.fabButtonSecondary, {backgroundColor: COLORS.fabGreen}]} 
           onPress={() => {
             closeFabMenu();
-            navigation.navigate('ai');
+            try {
+              navigation.navigate('ai');
+            } catch (error) {
+              console.log('AI ekranına yönlendirme hatası:', error);
+              // Alternatif yönlendirme - ana ekrana yönlendir
+              navigation.navigate('Home');
+            }
           }}
         >
           <Ionicons name="chatbubble-outline" size={20} color="#FFFFFF" style={{marginRight: 8}} />
