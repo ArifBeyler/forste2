@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CalendarScreen from '../screens/CalendarScreen';
 import ChatScreen from '../screens/ChatScreen';
@@ -51,6 +51,13 @@ export default function HomeTabNavigator() {
               ]}>
                 <Ionicons name={iconName} size={24} color={focused ? '#FFFFFF' : '#555555'} />
               </View>
+              {route.name === 'Focus' && (
+                <Text style={{
+                  fontSize: 10,
+                  marginTop: 2,
+                  color: focused ? '#FF5A5A' : '#555555'
+                }}>Focus</Text>
+              )}
             </View>
           );
         },
@@ -70,7 +77,7 @@ export default function HomeTabNavigator() {
       />
       <Tab.Screen 
         name="Focus" 
-        component={FocusScreen} 
+        component={FocusScreen}
       />
       <Tab.Screen 
         name="Profile" 

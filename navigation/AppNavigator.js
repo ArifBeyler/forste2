@@ -2,15 +2,18 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
+import { Easing } from 'react-native';
+import { createSharedElementStackNavigator } from 'react-navigation-shared-element';
 
 // Ekranları import et
 import AddEventScreen from '../screens/AddEventScreen';
 import AddProjectScreen from '../screens/AddProjectScreen';
 import AddTaskScreen from '../screens/AddTaskScreen';
 import CalendarScreen from '../screens/CalendarScreen';
+import CalendarStatistics from '../screens/CalendarStatistics';
 import ChatScreen from '../screens/ChatScreen';
 import EventDetailScreen from '../screens/EventDetailScreen';
-import FocusScreen from '../screens/FocusScreen';
+import FocusScreenWrapper from '../screens/FocusScreen';
 import HomeScreen from '../screens/HomeScreen';
 import JournalDetailScreen from '../screens/JournalDetailScreen';
 import JournalScreen from '../screens/JournalScreen';
@@ -32,6 +35,7 @@ import { useAuth } from '../context/AuthContext';
 
 // Stack Navigator
 const Stack = createNativeStackNavigator();
+const SharedElementStack = createSharedElementStackNavigator();
 const Tab = createBottomTabNavigator();
 
 // Projeler stack navigator
@@ -50,20 +54,84 @@ function ProjectsStack() {
   );
 }
 
-// Takvim stack navigator
+// Takvim stack navigator - Shared Element geçişleri ile
 function CalendarStack() {
+  // Özel geçiş konfigürasyonu
+  const transitionSpec = {
+    open: {
+      animation: 'timing',
+      config: {
+        duration: 400,
+        easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+      },
+    },
+    close: {
+      animation: 'timing',
+      config: {
+        duration: 400,
+        easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+      },
+    },
+  };
+
+  // Özel cardStyleInterpolator
+  const cardStyleInterpolator = ({ current, next, layouts }) => {
+    return {
+      cardStyle: {
+        transform: [
+          {
+            translateX: current.progress.interpolate({
+              inputRange: [0, 1],
+              outputRange: [layouts.screen.width, 0],
+            }),
+          },
+        ],
+        opacity: current.progress.interpolate({
+          inputRange: [0, 0.5, 1],
+          outputRange: [0, 0.8, 1],
+        }),
+      },
+      overlayStyle: {
+        opacity: current.progress.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, 0.5],
+        }),
+      },
+    };
+  };
+
   return (
-    <Stack.Navigator
+    <SharedElementStack.Navigator
       screenOptions={{
         headerShown: false,
+        gestureEnabled: true,
+        gestureDirection: 'horizontal',
+        transitionSpec,
+        cardStyleInterpolator,
+        cardOverlayEnabled: true,
       }}
     >
-      <Stack.Screen name="CalendarMain" component={CalendarScreen} />
-      <Stack.Screen name="AddTask" component={AddTaskScreen} />
-      <Stack.Screen name="AddEvent" component={AddEventScreen} />
-      <Stack.Screen name="EventDetail" component={EventDetailScreen} />
-      <Stack.Screen name="TodoDetail" component={TodoDetailScreen} />
-    </Stack.Navigator>
+      <SharedElementStack.Screen name="CalendarMain" component={CalendarScreen} />
+      <SharedElementStack.Screen name="AddTask" component={AddTaskScreen} />
+      <SharedElementStack.Screen name="AddEvent" component={AddEventScreen} />
+      <SharedElementStack.Screen 
+        name="EventDetail" 
+        component={EventDetailScreen}
+        sharedElements={(route) => {
+          const { event } = route.params;
+          return [`event.${event.id}.card`];
+        }}
+      />
+      <SharedElementStack.Screen 
+        name="TodoDetail" 
+        component={TodoDetailScreen}
+        sharedElements={(route) => {
+          const { todo } = route.params;
+          return [`todo.${todo.id}.card`];
+        }}
+      />
+      <SharedElementStack.Screen name="CalendarStatistics" component={CalendarStatistics} />
+    </SharedElementStack.Navigator>
   );
 }
 
@@ -71,16 +139,37 @@ function CalendarStack() {
 function TabNavigator() {
   return (
     <Tab.Navigator
-      tabBar={(props) => <BottomTabBar {...props} />}
+      tabBar={(props) => {
+        // Eğer Calendar stack'inde AddTask veya AddEvent ekranındaysak, tabbar'ı gizle
+        const { state } = props.navigation;
+        if (state) {
+          const route = state.routes[state.index];
+          if (route.name === 'Calendar') {
+            // CalendarStack'in aktif ekranını kontrol et
+            const calendarRoute = route.state?.routes?.[route.state.index];
+            if (calendarRoute && (calendarRoute.name === 'AddTask' || calendarRoute.name === 'AddEvent')) {
+              return null; // TabBar'ı tamamen gizle
+            }
+          }
+          // Focus ekranı için de gizle
+          if (route.name === 'Focus') {
+            return null;
+          }
+        }
+        return <BottomTabBar {...props} />;
+      }}
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
       }}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Calendar" component={CalendarStack} />
+      <Tab.Screen 
+        name="Calendar" 
+        component={CalendarStack}
+      />
       <Tab.Screen name="Chat" component={ChatScreen} />
-      <Tab.Screen name="Focus" component={FocusScreen} />
+      <Tab.Screen name="Focus" component={FocusScreenWrapper} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
@@ -121,10 +210,8 @@ export default function AppNavigator() {
             <Stack.Screen name="Journal" component={JournalScreen} />
             <Stack.Screen name="JournalDetail" component={JournalDetailScreen} />
             <Stack.Screen name="Statistics" component={StatisticsScreen} />
-            <Stack.Screen name="AddTask" component={AddTaskScreen} />
-            <Stack.Screen name="AddEvent" component={AddEventScreen} />
-            <Stack.Screen name="EventDetail" component={EventDetailScreen} />
             <Stack.Screen name="TodoDetail" component={TodoDetailScreen} />
+            <Stack.Screen name="EventDetail" component={EventDetailScreen} />
           </>
         ) : (
           <>

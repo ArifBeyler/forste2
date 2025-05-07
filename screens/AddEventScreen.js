@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     Alert,
     KeyboardAvoidingView,
@@ -18,27 +18,82 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import SuccessToast from '../components/SuccessToast';
 import { useCalendar } from '../context/CalendarContext';
 
+// Sabitler - Zenginleştirilmiş etkinlik türleri
+const EVENT_TYPES = {
+  PERSONAL_DEV: 'personal_dev',  // Kişisel Gelişim
+  SPORT: 'sport',                // Spor
+  WORK: 'work',                  // İş / Üretkenlik
+  RELATIONSHIP: 'relationship',  // İlişkisel
+  MEETING: 'meeting',            // Toplantı  
+  EDUCATION: 'education',        // Eğitim/Okul
+  HOMEWORK: 'homework',          // Ödev
+  PROJECT: 'project',            // Proje
+  HOME: 'home',                  // Ev İşleri
+  SHOPPING: 'shopping',          // Alışveriş
+  HEALTH: 'health',              // Sağlık
+  SOCIAL: 'social'               // Sosyal Aktivite
+};
+
+// Etkinlik tipleri için renkler
+const EVENT_COLORS = {
+  personal_dev: '#FF6384',  // Kişisel Gelişim - Pembe/Kırmızı
+  sport: '#36A2EB',         // Spor - Mavi
+  work: '#FFCE56',          // İş / Üretkenlik - Sarı
+  relationship: '#4BC0C0',  // İlişkisel - Turkuaz
+  meeting: '#9966FF',       // Toplantı - Mor
+  education: '#66CC99',     // Eğitim/Okul - Yeşil
+  homework: '#FF9966',      // Ödev - Turuncu
+  project: '#C9CBCF',       // Proje - Gri
+  home: '#6699CC',          // Ev İşleri - Mavi Gri
+  shopping: '#CC99FF',      // Alışveriş - Lavanta
+  health: '#FF6666',        // Sağlık - Kırmızı
+  social: '#66CCFF'         // Sosyal Aktivite - Açık Mavi
+};
+
+// Etkinlik tipleri için ikonlar
+const EVENT_ICONS = {
+  personal_dev: 'book-outline',        // Kişisel Gelişim
+  sport: 'fitness-outline',            // Spor
+  work: 'briefcase-outline',           // İş
+  relationship: 'people-outline',      // İlişkisel
+  meeting: 'calendar-outline',         // Toplantı
+  education: 'school-outline',         // Eğitim/Okul
+  homework: 'document-text-outline',   // Ödev
+  project: 'construct-outline',        // Proje
+  home: 'home-outline',                // Ev İşleri
+  shopping: 'cart-outline',            // Alışveriş
+  health: 'heart-outline',             // Sağlık
+  social: 'people-circle-outline'      // Sosyal Aktivite
+};
+
+// Zaman formatlamak için yardımcı fonksiyon
+function formatTime(date) {
+  return date.toLocaleTimeString('tr-TR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+}
+
 const AddEventScreen = ({ navigation, route }) => {
   const { addEvent } = useCalendar();
   
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [selectedType, setSelectedType] = useState(EVENT_TYPES.MEETING);
+  const [selectedType, setSelectedType] = useState(EVENT_TYPES.WORK);
   const [date, setDate] = useState(new Date());
   const [timeRange, setTimeRange] = useState({
     startTime: formatTime(new Date()), 
     endTime: formatTime(new Date(new Date().getTime() + 60 * 60 * 1000)) // 1 saat sonra
   });
   const [location, setLocation] = useState('');
-  const [participants, setParticipants] = useState([]);
-  const [participantInput, setParticipantInput] = useState('');
   const [isAllDay, setIsAllDay] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showStartTimePicker, setShowStartTimePicker] = useState(false);
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
   const [reminderOption, setReminderOption] = useState(null);
-  const [color, setColor] = useState(EVENT_COLORS[EVENT_TYPES.MEETING]);
-  const [icon, setIcon] = useState(EVENT_ICONS[EVENT_TYPES.MEETING]);
+  const [color, setColor] = useState(EVENT_COLORS[EVENT_TYPES.WORK]);
+  const [icon, setIcon] = useState(EVENT_ICONS[EVENT_TYPES.WORK]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
 
@@ -68,28 +123,20 @@ const AddEventScreen = ({ navigation, route }) => {
     { id: '1_hour', label: '1 saat önce', minutes: 60 },
   ];
 
-  // Mevcut kullanıcı
-  const currentUser = 'Daniel George';
-
-  // Simge seçenekleri
-  const icons = [
-    { name: 'people-outline', key: 'meeting', label: 'Toplantı' },
-    { name: 'calendar-outline', key: 'event', label: 'Etkinlik' },
-    { name: 'document-text-outline', key: 'review', label: 'İnceleme' },
-    { name: 'color-palette-outline', key: 'design', label: 'Tasarım' },
-    { name: 'call-outline', key: 'call', label: 'Arama' },
-    { name: 'mail-outline', key: 'email', label: 'E-posta' },
-    { name: 'desktop-outline', key: 'presentation', label: 'Sunum' },
-    { name: 'restaurant-outline', key: 'lunch', label: 'Yemek' },
-    { name: 'wine-outline', key: 'party', label: 'Parti' },
-  ];
-
-  // Etkinlik türleri
+  // Etkinlik türleri - Genişletilmiş ve Türkçe isimlerle
   const eventTypes = [
-    { id: 'meeting', name: 'Toplantı', color: '#FFB74D' },
-    { id: 'call', name: 'Görüşme', color: '#64B5F6' },
-    { id: 'workshop', name: 'Atölye', color: '#81C784' },
-    { id: 'presentation', name: 'Sunum', color: '#E57373' }
+    { id: EVENT_TYPES.PERSONAL_DEV, name: 'Kişisel Gelişim', color: EVENT_COLORS.personal_dev, icon: EVENT_ICONS.personal_dev },
+    { id: EVENT_TYPES.SPORT, name: 'Spor', color: EVENT_COLORS.sport, icon: EVENT_ICONS.sport },
+    { id: EVENT_TYPES.WORK, name: 'İş / Üretkenlik', color: EVENT_COLORS.work, icon: EVENT_ICONS.work },
+    { id: EVENT_TYPES.RELATIONSHIP, name: 'Buluşma', color: EVENT_COLORS.relationship, icon: EVENT_ICONS.relationship },
+    { id: EVENT_TYPES.MEETING, name: 'Toplantı', color: EVENT_COLORS.meeting, icon: EVENT_ICONS.meeting },
+    { id: EVENT_TYPES.EDUCATION, name: 'Okul', color: EVENT_COLORS.education, icon: EVENT_ICONS.education },
+    { id: EVENT_TYPES.HOMEWORK, name: 'Ödev', color: EVENT_COLORS.homework, icon: EVENT_ICONS.homework },
+    { id: EVENT_TYPES.PROJECT, name: 'Proje', color: EVENT_COLORS.project, icon: EVENT_ICONS.project },
+    { id: EVENT_TYPES.HOME, name: 'Ev', color: EVENT_COLORS.home, icon: EVENT_ICONS.home },
+    { id: EVENT_TYPES.SHOPPING, name: 'Alışveriş', color: EVENT_COLORS.shopping, icon: EVENT_ICONS.shopping },
+    { id: EVENT_TYPES.HEALTH, name: 'Sağlık', color: EVENT_COLORS.health, icon: EVENT_ICONS.health },
+    { id: EVENT_TYPES.SOCIAL, name: 'Sosyal Aktivite', color: EVENT_COLORS.social, icon: EVENT_ICONS.social }
   ];
 
   // Etkinlik tipini değiştirince renk ve simge de değişsin
@@ -108,7 +155,7 @@ const AddEventScreen = ({ navigation, route }) => {
   };
 
   // Etkinlik ekle
-  const handleAddEvent = async () => {
+  const handleAddEvent = useCallback(async () => {
     // Hata kontrolü
     const formErrors = {};
     if (!title) formErrors.title = 'Başlık gerekli';
@@ -122,6 +169,21 @@ const AddEventScreen = ({ navigation, route }) => {
     setIsSubmitting(true);
 
     try {
+      // Saat bilgilerini güvenli şekilde formatlama
+      let startTimeFormatted = null;
+      let endTimeFormatted = null;
+      
+      if (!isAllDay && timeRange && timeRange.startTime) {
+        startTimeFormatted = timeRange.startTime;
+      }
+      
+      if (!isAllDay && timeRange && timeRange.endTime) {
+        endTimeFormatted = timeRange.endTime;
+      }
+      
+      // Etkinlik türüne göre renk belirle
+      const eventColor = getEventColor(selectedType);
+      
       // Supabase'e eklenecek veri formatına dönüştür
       const newEvent = {
         title,
@@ -129,22 +191,30 @@ const AddEventScreen = ({ navigation, route }) => {
         type: selectedType,
         day: date.getDate(),
         date: date.toISOString().split('T')[0], // ISO formatında tarih
-        startTime: isAllDay ? null : timeRange.startTime,
-        endTime: isAllDay ? null : timeRange.endTime,
+        startTime: startTimeFormatted,
+        endTime: endTimeFormatted,
         location,
-        participants: participants.length > 0 ? participants : null,
         isAllDay,
         reminderOption,
-        color,
-        icon
+        color: eventColor,
+        icon: icon || EVENT_ICONS[selectedType] || 'calendar-outline'
       };
 
+      console.log('Yeni etkinlik ekleniyor:', newEvent);
       const result = await addEvent(newEvent);
+      console.log('Etkinlik ekleme sonucu:', result);
 
-      if (result.success) {
-        navigation.navigate('CalendarScreen', { refreshEvents: true });
+      if (result && result.success) {
+        // Başarılı toast mesajı göster
+        setToastMessage('Etkinlik başarıyla eklendi!');
+        setToastVisible(true);
+        
+        // Kısa bir gecikme ile geri dön
+        setTimeout(() => {
+          navigation.navigate('Calendar', { refreshEvents: Date.now() });
+        }, 1000);
       } else {
-        Alert.alert('Hata', result.error || 'Etkinlik eklenirken bir hata oluştu.');
+        Alert.alert('Hata', result?.error || 'Etkinlik eklenirken bir hata oluştu.');
       }
     } catch (error) {
       console.error('Etkinlik eklenemedi:', error);
@@ -152,24 +222,11 @@ const AddEventScreen = ({ navigation, route }) => {
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [title, description, selectedType, date, timeRange, isAllDay, location, reminderOption, icon, navigation, addEvent]);
   
   // Etkinlik türüne göre renk belirleme
   const getEventColor = (type) => {
-    switch(type) {
-      case 'meeting':
-        return '#FFB74D';
-      case 'call':
-        return '#64B5F6';
-      case 'party':
-        return '#CE93D8';
-      case 'workshop':
-        return '#81C784';
-      case 'presentation':
-        return '#E57373';
-      default:
-        return '#FFB74D';
-    }
+    return EVENT_COLORS[type] || '#FFCE56';
   };
   
   // Tarih içinden gün değerini çıkartma
@@ -249,7 +306,10 @@ const AddEventScreen = ({ navigation, route }) => {
   
   // Simge seçimi
   const handleIconSelect = (iconKey) => {
-    setIcon(iconKey);
+    const selectedIcon = icons.find(icon => icon.key === iconKey);
+    if (selectedIcon) {
+      setIcon(selectedIcon.name);
+    }
     setIconModalVisible(false);
   };
   
@@ -264,6 +324,25 @@ const AddEventScreen = ({ navigation, route }) => {
     setReminderOption(option);
     setReminderModalVisible(false);
   };
+
+  // Simge seçenekleri - Kategorilere uygun ikonlar
+  const icons = [
+    { name: 'book-outline', key: 'personal_dev', label: 'Kişisel Gelişim' },
+    { name: 'school-outline', key: 'education', label: 'Eğitim/Okul' },
+    { name: 'fitness-outline', key: 'sport', label: 'Spor' },
+    { name: 'briefcase-outline', key: 'work', label: 'İş' },
+    { name: 'people-outline', key: 'relationship', label: 'Buluşma' },
+    { name: 'calendar-outline', key: 'meeting', label: 'Toplantı' },
+    { name: 'document-text-outline', key: 'homework', label: 'Ödev' },
+    { name: 'construct-outline', key: 'project', label: 'Proje' },
+    { name: 'home-outline', key: 'home', label: 'Ev' },
+    { name: 'cart-outline', key: 'shopping', label: 'Alışveriş' },
+    { name: 'heart-outline', key: 'health', label: 'Sağlık' },
+    { name: 'people-circle-outline', key: 'social', label: 'Sosyal Aktivite' },
+    { name: 'restaurant-outline', key: 'meal', label: 'Yemek' },
+    { name: 'musical-notes-outline', key: 'hobby', label: 'Hobi' },
+    { name: 'globe-outline', key: 'travel', label: 'Seyahat' },
+  ];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -324,15 +403,18 @@ const AddEventScreen = ({ navigation, route }) => {
               style={styles.iconSelector}
               onPress={() => setIconModalVisible(true)}
             >
-              {icon && (
+              {icon ? (
                 <View style={styles.selectedIconContainer}>
-                  <Ionicons 
-                    name={icons.find(icon => icon.key === icon)?.name || 'help-circle-outline'} 
-                    size={28} 
-                    color="#3B82F6" 
-                  />
+                  <Ionicons name={icon} size={28} color="#3B82F6" />
                   <Text style={styles.selectedIconText}>
-                    {icons.find(icon => icon.key === icon)?.label || 'Simge Seç'}
+                    {icons.find(item => item.name === icon)?.label || 'Simge Seç'}
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.selectedIconContainer}>
+                  <Ionicons name={EVENT_ICONS[selectedType] || 'calendar-outline'} size={28} color="#3B82F6" />
+                  <Text style={styles.selectedIconText}>
+                    Varsayılan Simge
                   </Text>
                 </View>
               )}
@@ -434,20 +516,6 @@ const AddEventScreen = ({ navigation, route }) => {
             </TouchableOpacity>
           </View>
 
-          {/* Katılımcılar */}
-          <View style={styles.formSection}>
-            <Text style={styles.label}>Katılımcılar</Text>
-            <TouchableOpacity style={styles.selector}>
-              <View style={styles.selectorIconContainer}>
-                <Ionicons name="people-outline" size={22} color="#666" />
-              </View>
-              <Text style={styles.selectorText}>
-                {participants.length > 0 ? `${participants.length} kişi` : 'Katılımcı ekle'}
-              </Text>
-              <Ionicons name="add-circle-outline" size={22} color="#3B82F6" style={{ marginLeft: 'auto' }} />
-            </TouchableOpacity>
-          </View>
-
           {/* Bildirim */}
           <View style={styles.formSection}>
             <Text style={styles.label}>Bildirim Hatırlatması</Text>
@@ -489,24 +557,26 @@ const AddEventScreen = ({ navigation, route }) => {
                 </TouchableOpacity>
               </View>
               
-              <View style={styles.iconGrid}>
-                {icons.map((icon) => (
-                  <TouchableOpacity
-                    key={icon.key}
-                    style={[
-                      styles.iconButton,
-                      icon === icon && styles.selectedIconButton
-                    ]}
-                    onPress={() => handleIconSelect(icon.key)}
-                  >
-                    <Ionicons 
-                      name={icon.name} 
-                      size={24} 
-                      color={icon === icon ? '#fff' : '#555'} 
-                    />
-                  </TouchableOpacity>
-                ))}
-              </View>
+              <ScrollView style={styles.scrollableModalContent} showsVerticalScrollIndicator={false}>
+                <View style={styles.iconGrid}>
+                  {icons.map((iconItem) => (
+                    <TouchableOpacity
+                      key={iconItem.key}
+                      style={[
+                        styles.iconButton,
+                        icon === iconItem.name && styles.selectedIconButton
+                      ]}
+                      onPress={() => handleIconSelect(iconItem.key)}
+                    >
+                      <Ionicons 
+                        name={iconItem.name} 
+                        size={24} 
+                        color={icon === iconItem.name ? '#fff' : '#555'} 
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
             </View>
           </View>
         </Modal>
@@ -527,29 +597,31 @@ const AddEventScreen = ({ navigation, route }) => {
                 </TouchableOpacity>
               </View>
               
-              <View style={styles.reminderOptions}>
-                {eventTypes.map((type) => (
-                  <TouchableOpacity
-                    key={type.id}
-                    style={[
-                      styles.reminderOption,
-                      selectedType === type.id && styles.selectedReminderOption,
-                      { borderLeftWidth: 4, borderLeftColor: type.color }
-                    ]}
-                    onPress={() => handleEventTypeSelect(type.id)}
-                  >
-                    <Text style={[
-                      styles.reminderOptionText,
-                      selectedType === type.id && { color: type.color, fontWeight: '600' }
-                    ]}>
-                      {type.name}
-                    </Text>
-                    {selectedType === type.id && (
-                      <Ionicons name="checkmark" size={18} color={type.color} />
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </View>
+              <ScrollView style={styles.scrollableModalContent} showsVerticalScrollIndicator={true}>
+                <View style={styles.reminderOptions}>
+                  {eventTypes.map((type) => (
+                    <TouchableOpacity
+                      key={type.id}
+                      style={[
+                        styles.reminderOption,
+                        selectedType === type.id && styles.selectedReminderOption,
+                        { borderLeftWidth: 4, borderLeftColor: type.color }
+                      ]}
+                      onPress={() => handleEventTypeSelect(type.id)}
+                    >
+                      <Text style={[
+                        styles.reminderOptionText,
+                        selectedType === type.id && { color: type.color, fontWeight: '600' }
+                      ]}>
+                        {type.name}
+                      </Text>
+                      {selectedType === type.id && (
+                        <Ionicons name="checkmark" size={18} color={type.color} />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
             </View>
           </View>
         </Modal>
@@ -709,28 +781,30 @@ const AddEventScreen = ({ navigation, route }) => {
                 </TouchableOpacity>
               </View>
               
-              <View style={styles.reminderOptions}>
-                {reminderOptions.map((option) => (
-                  <TouchableOpacity
-                    key={option.id}
-                    style={[
-                      styles.reminderOption,
-                      reminderOption?.id === option.id && styles.selectedReminderOption
-                    ]}
-                    onPress={() => handleReminderSelect(option)}
-                  >
-                    <Text style={[
-                      styles.reminderOptionText,
-                      reminderOption?.id === option.id && styles.selectedReminderOptionText
-                    ]}>
-                      {option.label}
-                    </Text>
-                    {reminderOption?.id === option.id && (
-                      <Ionicons name="checkmark" size={18} color="#3B82F6" />
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </View>
+              <ScrollView style={styles.scrollableModalContent} showsVerticalScrollIndicator={true}>
+                <View style={styles.reminderOptions}>
+                  {reminderOptions.map((option) => (
+                    <TouchableOpacity
+                      key={option.id}
+                      style={[
+                        styles.reminderOption,
+                        reminderOption?.id === option.id && styles.selectedReminderOption
+                      ]}
+                      onPress={() => handleReminderSelect(option)}
+                    >
+                      <Text style={[
+                        styles.reminderOptionText,
+                        reminderOption?.id === option.id && styles.selectedReminderOptionText
+                      ]}>
+                        {option.label}
+                      </Text>
+                      {reminderOption?.id === option.id && (
+                        <Ionicons name="checkmark" size={18} color="#3B82F6" />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
             </View>
           </View>
         </Modal>
@@ -1070,10 +1144,11 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 20,
     width: '85%',
-    maxHeight: '60%',
+    maxHeight: '70%',
   },
   reminderOptions: {
     marginTop: 5,
+    paddingBottom: 10,
   },
   reminderOption: {
     flexDirection: 'row',
@@ -1097,6 +1172,9 @@ const styles = StyleSheet.create({
   selectedReminderOptionText: {
     color: '#3B82F6',
     fontWeight: '500',
+  },
+  scrollableModalContent: {
+    flexGrow: 1,
   },
 });
 

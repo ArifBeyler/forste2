@@ -12,6 +12,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
+import { useCalendar } from '../context/CalendarContext';
 
 // Karşılama mesajları
 const welcomeMessages = [
@@ -61,6 +62,7 @@ const COLORS = {
 
 export default function HomeScreen() {
   const { user, refreshUser } = useAuth();
+  const { events, refresh: refreshCalendar, toggleTaskComplete } = useCalendar(); // Takvim verilerini al ve toggleTaskComplete fonksiyonunu alalım
   const navigation = useNavigation();
   const [userName, setUserName] = useState("Değerli Kullanıcı");
   const [isLoading, setIsLoading] = useState(false);
@@ -74,6 +76,7 @@ export default function HomeScreen() {
     journal: 0,
     project: 0
   });
+  const [nextEvent, setNextEvent] = useState(null); // En yakın etkinlik
   
   // Animasyon değerleri
   const welcomeOpacity = useSharedValue(1);
@@ -122,10 +125,23 @@ export default function HomeScreen() {
     // Kullanıcı bilgilerini yenile
     refreshUser();
   }, [user, refreshUser]);
-
-  // Sayfa odaklandığında su verilerini yükle
+  
+  // Etkinlikleri izle ve en yakın etkinliği bul
+  useEffect(() => {
+    if (events && events.length > 0) {
+      findNextEvent();
+    }
+  }, [events]);
+  
+  // Sayfa fokuslandığında etkinlikleri yenile
   useFocusEffect(
     React.useCallback(() => {
+      // Takvim verilerini yenile
+      refreshCalendar();
+      // En yakın etkinliği bul
+      findNextEvent();
+      
+      // Su verilerini yükle
       const loadWaterData = async () => {
         try {
           // Bugünün tarihini al
@@ -167,97 +183,235 @@ export default function HomeScreen() {
         setCurrentWelcomeIndex(newIndex);
       }, 300);
       
-      // Açıklama metinlerini de değiştir
+      // Diğer açıklamalar için de benzer animasyon
       const animateDescriptions = () => {
-        // Su hatırlatıcısı
+        // Su hatırlatıcısı açıklaması
         waterDescOpacity.value = withSequence(
-          withTiming(0, { duration: 500 }),
-          withDelay(100, withTiming(1, { duration: 500 }))
+          withTiming(0, { duration: 300 }),
+          withDelay(100, withTiming(1, { duration: 300 }))
         );
         
-        // Notlar
-        notesDescOpacity.value = withSequence(
-          withDelay(150, withTiming(0, { duration: 500 })),
-          withDelay(250, withTiming(1, { duration: 500 }))
-        );
-        
-        // Günlük
-        journalDescOpacity.value = withSequence(
-          withDelay(300, withTiming(0, { duration: 500 })),
-          withDelay(400, withTiming(1, { duration: 500 }))
-        );
-        
-        // Proje
-        projectDescOpacity.value = withSequence(
-          withDelay(450, withTiming(0, { duration: 500 })),
-          withDelay(550, withTiming(1, { duration: 500 }))
-        );
-        
-        // Metinler kaybolduğunda yeni açıklamaları ayarla
+        // Diğer açıklamaları rastgele seç
         setTimeout(() => {
-          setCurrentDescriptions({
-            water: Math.floor(Math.random() * planDescriptions.water.length),
-            notes: Math.floor(Math.random() * planDescriptions.notes.length),
-            journal: Math.floor(Math.random() * planDescriptions.journal.length),
+          setCurrentDescriptions(prev => ({
+            ...prev,
+            water: Math.floor(Math.random() * planDescriptions.water.length)
+          }));
+        }, 300);
+        
+        // Notlar açıklaması
+        notesDescOpacity.value = withSequence(
+          withTiming(0, { duration: 300 }),
+          withDelay(200, withTiming(1, { duration: 300 }))
+        );
+        
+        setTimeout(() => {
+          setCurrentDescriptions(prev => ({
+            ...prev,
+            notes: Math.floor(Math.random() * planDescriptions.notes.length)
+          }));
+        }, 400);
+        
+        // Günlük açıklaması
+        journalDescOpacity.value = withSequence(
+          withTiming(0, { duration: 300 }),
+          withDelay(300, withTiming(1, { duration: 300 }))
+        );
+        
+        setTimeout(() => {
+          setCurrentDescriptions(prev => ({
+            ...prev,
+            journal: Math.floor(Math.random() * planDescriptions.journal.length)
+          }));
+        }, 500);
+        
+        // Proje açıklaması
+        projectDescOpacity.value = withSequence(
+          withTiming(0, { duration: 300 }),
+          withDelay(400, withTiming(1, { duration: 300 }))
+        );
+        
+        setTimeout(() => {
+          setCurrentDescriptions(prev => ({
+            ...prev,
             project: Math.floor(Math.random() * planDescriptions.project.length)
-          });
-        }, 650);
+          }));
+        }, 600);
       };
       
       animateDescriptions();
       
-      return () => {};
     }, [])
   );
+  
+  // En yakın etkinliği bulma
+  const findNextEvent = () => {
+    if (!events || events.length === 0) {
+      setNextEvent(null);
+      return;
+    }
+    
+    const now = new Date();
+    
+    // Bugün ve gelecek etkinlikleri filtrele
+    const futureEvents = events.filter(event => {
+      // Etkinlik tarihini al (gün değeri)
+      const eventDay = event.day;
+      if (!eventDay) return false;
+      
+      // Gün değerini tarihe çevir
+      const today = now.getDate();
+      const currentMonth = now.getMonth() + 1;
+      const currentYear = now.getFullYear();
+      
+      // Etkinlik günü bugün ve ilerisi mi kontrol et
+      return eventDay >= today;
+    });
+    
+    if (futureEvents.length === 0) {
+      setNextEvent(null);
+      return;
+    }
+    
+    // Tarihe göre sırala
+    const sortedEvents = [...futureEvents].sort((a, b) => {
+      // Önce gün karşılaştırması
+      if (a.day !== b.day) {
+        return a.day - b.day;
+      }
+      
+      // Gün aynıysa, saat karşılaştırması yap
+      const aTime = a.startTime ? a.startTime : '23:59';
+      const bTime = b.startTime ? b.startTime : '23:59';
+      
+      return aTime.localeCompare(bTime);
+    });
+    
+    // En yakın etkinliği al
+    setNextEvent(sortedEvents[0]);
+  };
 
   // Animasyon stilleri
   const welcomeAnimatedStyle = useAnimatedStyle(() => {
     return {
-      opacity: welcomeOpacity.value,
+      opacity: welcomeOpacity.value
     };
   });
   
   const waterDescAnimatedStyle = useAnimatedStyle(() => {
     return {
-      opacity: waterDescOpacity.value,
+      opacity: waterDescOpacity.value
     };
   });
   
   const notesDescAnimatedStyle = useAnimatedStyle(() => {
     return {
-      opacity: notesDescOpacity.value,
+      opacity: notesDescOpacity.value
     };
   });
   
   const journalDescAnimatedStyle = useAnimatedStyle(() => {
     return {
-      opacity: journalDescOpacity.value,
+      opacity: journalDescOpacity.value
     };
   });
   
   const projectDescAnimatedStyle = useAnimatedStyle(() => {
     return {
-      opacity: projectDescOpacity.value,
+      opacity: projectDescOpacity.value
     };
   });
-
-  // Miktarı formatlama
+  
+  // Su miktarını formatlama
   const formatWaterAmount = (ml) => {
-    return ml >= 1000 ? `${(ml / 1000).toFixed(1)} L` : `${ml} ml`;
+    return ml >= 1000 ? `${(ml/1000).toFixed(1)}L` : `${ml}ml`;
+  };
+  
+  // Su durumu metni
+  const getWaterStatusText = () => {
+    if (totalWaterIntake >= waterTarget) {
+      return `Hedef tamamlandı! (${formatWaterAmount(totalWaterIntake)})`;
+    } else if (totalWaterIntake === 0) {
+      return 'Henüz su içilmedi, hatırlatıcı ekleyin';
+    } else {
+      const remaining = waterTarget - totalWaterIntake;
+      return `${formatWaterAmount(totalWaterIntake)} içildi, ${formatWaterAmount(remaining)} kaldı`;
+    }
+  };
+  
+  // Etkinlik zamanı hesaplama
+  const getEventTimeText = (event) => {
+    if (!event) return '';
+    
+    const now = new Date();
+    const today = now.getDate();
+    const eventDay = event.day;
+    
+    // Bugün mü?
+    if (eventDay === today) {
+      // Saat kontrolü
+      if (event.startTime) {
+        // Şu anki saat
+        const currentHour = now.getHours();
+        const currentMinute = now.getMinutes();
+        
+        // Etkinlik saati
+        const [eventHour, eventMinute] = event.startTime.split(':').map(num => parseInt(num));
+        
+        // Etkinlik saati geçmiş mi?
+        if (eventHour < currentHour || (eventHour === currentHour && eventMinute <= currentMinute)) {
+          return 'Şu anda';
+        } else {
+          // Saat farkını hesapla
+          const hourDiff = eventHour - currentHour;
+          if (hourDiff === 0) {
+            const minuteDiff = eventMinute - currentMinute;
+            return `${minuteDiff} dakika sonra`;
+          } else if (hourDiff === 1) {
+            return 'Yaklaşık 1 saat sonra';
+          } else {
+            return `${hourDiff} saat sonra`;
+          }
+        }
+      } else {
+        return 'Bugün';
+      }
+    } else {
+      // Kaç gün sonra?
+      const dayDiff = eventDay - today;
+      if (dayDiff === 1) {
+        return 'Yarın';
+      } else {
+        return `${dayDiff} gün sonra`;
+      }
+    }
   };
 
-  // Su kutucuğu için açıklama metni
-  const getWaterStatusText = () => {
-    if (totalWaterIntake === 0) return planDescriptions.water[currentDescriptions.water];
-    if (totalWaterIntake >= waterTarget) return "Bugünkü hedefe ulaştın!";
-    const percentage = Math.floor((totalWaterIntake / waterTarget) * 100);
-    return `Bugün ${formatWaterAmount(totalWaterIntake)} içtin (${percentage}%)`;
+  // Görev tamamlama durumunu değiştirme
+  const handleToggleTask = async (id, isCompleted) => {
+    try {
+      const result = await toggleTaskComplete(id, !isCompleted);
+      if (result.success) {
+        // Güncelleme başarılı olduğunda takvim ve etkinlikleri yenile
+        refreshCalendar();
+        findNextEvent();
+        
+        // Eğer görev tamamlandıysa ve tamamlanmamış durumdaysa, takvim ekranına yönlendir
+        if (!isCompleted) {
+          // Biraz gecikme ekleyelim ki kullanıcı tamamlandığını görebilsin
+          setTimeout(() => {
+            navigation.navigate('Calendar');
+          }, 300);
+        }
+      }
+    } catch (error) {
+      console.error('Görev durumu değiştirilirken hata:', error);
+    }
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
-      
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.content}>
           {/* Başlık bölümü */}
@@ -273,20 +427,85 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Görev bölümü */}
+          {/* Görev bölümü - En yakın etkinlik */}
           <View style={styles.taskSection}>
-            <TouchableOpacity style={styles.taskItem}>
+            <TouchableOpacity 
+              style={[
+                styles.taskItem,
+                nextEvent && { borderColor: nextEvent.color || '#3B82F6' }
+              ]}
+              onPress={() => {
+                if (nextEvent) {
+                  // Etkinlik detayına git
+                  if (nextEvent.type === 'todo') {
+                    navigation.navigate('TodoDetail', { 
+                      todo: nextEvent,
+                      onToggleComplete: handleToggleTask
+                    });
+                  } else {
+                    navigation.navigate('EventDetail', { event: nextEvent });
+                  }
+                } else {
+                  // Etkinlik yoksa takvim ekranına git
+                  navigation.navigate('Calendar');
+                }
+              }}
+            >
               <View style={styles.taskRow}>
-                <View style={styles.taskIconPrimary}>
-                  <View style={styles.taskIconInner} />
-                </View>
-                <View style={styles.taskContent}>
-                  <Text style={styles.taskTitlePrimary}>Mobil uygulama tasarımı</Text>
-                  <Text style={styles.taskSubtitle}>15 saat sonra</Text>
-                </View>
-                <TouchableOpacity style={styles.taskCheckButton}>
-                  <Text style={styles.taskCheckText}>✓</Text>
-                </TouchableOpacity>
+                {nextEvent ? (
+                  <>
+                    <View style={styles.taskContent}>
+                      <Text style={[
+                        styles.taskTitlePrimary, 
+                        { color: nextEvent.color || '#3B82F6' }
+                      ]}>{nextEvent.title}</Text>
+                      <Text style={styles.taskSubtitle}>{getEventTimeText(nextEvent)}</Text>
+                    </View>
+                    
+                    {nextEvent.type === 'todo' ? (
+                      // Eğer yapılacak görevse checkbox göster
+                      <TouchableOpacity 
+                        style={styles.taskCheckboxContainer}
+                        onPress={(e) => {
+                          e.stopPropagation(); // Ana kartın onPress'ini tetikleme
+                          handleToggleTask(nextEvent.id, nextEvent.completed);
+                        }}
+                      >
+                        <View style={[
+                          styles.taskCheckbox,
+                          nextEvent.completed && [styles.taskCheckboxCompleted, { backgroundColor: nextEvent.color || '#3B82F6' }]
+                        ]}>
+                          {nextEvent.completed && (
+                            <Text style={styles.taskCheckboxIcon}>✓</Text>
+                          )}
+                        </View>
+                      </TouchableOpacity>
+                    ) : (
+                      // Etkinlikse ok butonu göster
+                      <TouchableOpacity 
+                        style={[
+                          styles.taskCheckButton,
+                          { backgroundColor: nextEvent.color || '#3B82F6' }
+                        ]}
+                      >
+                        <Text style={styles.taskCheckText}>→</Text>
+                      </TouchableOpacity>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <View style={styles.taskContent}>
+                      <Text style={styles.taskTitlePrimary}>Planlanmış etkinlik yok</Text>
+                      <Text style={styles.taskSubtitle}>Yeni etkinlik eklemek için takvime gidin</Text>
+                    </View>
+                    <TouchableOpacity 
+                      style={styles.taskCheckButton}
+                      onPress={() => navigation.navigate('Calendar')}
+                    >
+                      <Text style={styles.taskCheckText}>+</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
               </View>
             </TouchableOpacity>
           </View>
@@ -451,44 +670,30 @@ const styles = StyleSheet.create({
     marginBottom: 32
   },
   taskItem: {
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    backgroundColor: COLORS.background,
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.1)',
+    borderWidth: 0.5,
+    borderColor: '#E5E7EB',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   taskRow: {
     flexDirection: 'row',
-    alignItems: 'center'
-  },
-  taskIconPrimary: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: '#3B82F6',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12
-  },
-  taskIconInner: {
-    width: 16,
-    height: 16,
-    backgroundColor: 'white',
-    borderRadius: 4
+    justifyContent: 'space-between'
   },
   taskContent: {
     flex: 1
   },
   taskTitlePrimary: {
-    color: '#3B82F6',
-    fontWeight: '500',
-    fontSize: 16
+    fontWeight: '600',
+    fontSize: 16,
+    marginBottom: 4
   },
   taskSubtitle: {
     color: '#4B5563',
@@ -500,7 +705,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: '#3B82F6',
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
+    marginLeft: 12
   },
   taskCheckText: {
     color: 'white',
@@ -736,5 +942,29 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#3B82F6',
     borderRadius: 3,
-  }
+  },
+  // Yapılacak görev checkbox stillerini ekle
+  taskCheckboxContainer: {
+    justifyContent: 'center',
+    marginLeft: 12,
+  },
+  taskCheckbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: '#3B82F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F5F8FF',
+  },
+  taskCheckboxCompleted: {
+    backgroundColor: '#3B82F6',
+    borderColor: '#3B82F6',
+  },
+  taskCheckboxIcon: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
 }); 

@@ -13,16 +13,17 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { SharedElement } from 'react-navigation-shared-element';
 
 const { width, height } = Dimensions.get('window');
 
 // Sıralı animasyon oluşturmak için yardımcı fonksiyon
-const createAnimationSequence = (animations, delay = 48) => {
-  return animations.map((_, i) => Animated.timing(
-    animations[i],
+const createAnimationSequence = (animations, duration = 250, delay = 50) => {
+  return animations.map((anim, i) => Animated.timing(
+    anim,
     {
       toValue: 1,
-      duration: 190,
+      duration: duration,
       delay: i * delay,
       useNativeDriver: true,
       easing: Easing.out(Easing.ease),
@@ -39,43 +40,121 @@ const EventDetailScreen = ({ route, navigation }) => {
   const typeAnim = useRef(new Animated.Value(0)).current;
   const titleAnim = useRef(new Animated.Value(0)).current;
   const cardAnim = useRef(new Animated.Value(0)).current;
-  const sectionAnims = [
-    useRef(new Animated.Value(0)).current,
-    useRef(new Animated.Value(0)).current,
-    useRef(new Animated.Value(0)).current,
-    useRef(new Animated.Value(0)).current,
-    useRef(new Animated.Value(0)).current,
-  ];
+  
+  // Her bölüm için ayrı animasyon değerleri
+  const descriptionAnim = useRef(new Animated.Value(0)).current;
+  const timeAnim = useRef(new Animated.Value(0)).current;
+  const locationAnim = useRef(new Animated.Value(0)).current;
+  const participantsAnim = useRef(new Animated.Value(0)).current;
+  const reminderAnim = useRef(new Animated.Value(0)).current;
+  const categoryAnim = useRef(new Animated.Value(0)).current;
+  
   const buttonsAnim = useRef(new Animated.Value(0)).current;
   
   // Animasyonları başlat
   useEffect(() => {
-    const sequentialAnimations = [
+    // Tüm animasyonları sırayla başlat
+    Animated.sequence([
+      // 1. Header animasyonu
       Animated.timing(headerAnim, {
         toValue: 1,
-        duration: 238,
+        duration: 300,
         useNativeDriver: true,
         easing: Easing.out(Easing.ease),
       }),
-      ...createAnimationSequence([iconAnim, typeAnim, titleAnim], 38),
+      
+      // 2. İkon, tür, başlık animasyonu
+      Animated.parallel([
+        Animated.timing(iconAnim, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+          easing: Easing.out(Easing.ease),
+        }),
+        Animated.timing(typeAnim, {
+          toValue: 1,
+          duration: 250,
+          delay: 50,
+          useNativeDriver: true,
+          easing: Easing.out(Easing.ease),
+        }),
+        Animated.timing(titleAnim, {
+          toValue: 1,
+          duration: 250,
+          delay: 100,
+          useNativeDriver: true,
+          easing: Easing.out(Easing.ease),
+        }),
+      ]),
+      
+      // 3. Kart animasyonu
       Animated.timing(cardAnim, {
         toValue: 1,
-        duration: 238,
-        delay: 119,
+        duration: 300,
         useNativeDriver: true,
         easing: Easing.out(Easing.ease),
       }),
-      ...createAnimationSequence(sectionAnims, 48),
+      
+      // 4. Kart içindeki bölümlerin animasyonu - sırayla
+      Animated.stagger(70, [
+        Animated.timing(descriptionAnim, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+          easing: Easing.out(Easing.ease),
+        }),
+        
+        Animated.timing(timeAnim, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+          easing: Easing.out(Easing.ease),
+        }),
+        
+        ...(event.location ? [
+          Animated.timing(locationAnim, {
+            toValue: 1,
+            duration: 250,
+            useNativeDriver: true,
+            easing: Easing.out(Easing.ease),
+          })
+        ] : []),
+        
+        ...(event.participants && event.participants.length > 0 ? [
+          Animated.timing(participantsAnim, {
+            toValue: 1,
+            duration: 250,
+            useNativeDriver: true,
+            easing: Easing.out(Easing.ease),
+          })
+        ] : []),
+        
+        // Kategori animasyonu
+        Animated.timing(categoryAnim, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+          easing: Easing.out(Easing.ease),
+        }),
+        
+        ...(event.reminder ? [
+          Animated.timing(reminderAnim, {
+            toValue: 1,
+            duration: 250,
+            useNativeDriver: true,
+            easing: Easing.out(Easing.ease),
+          })
+        ] : []),
+      ]),
+      
+      // 5. Butonlar animasyonu
       Animated.timing(buttonsAnim, {
         toValue: 1,
-        duration: 190,
-        delay: 143,
+        duration: 250,
         useNativeDriver: true,
         easing: Easing.out(Easing.elastic(1)),
       }),
-    ];
-    
-    Animated.sequence(sequentialAnimations).start();
+    ]).start();
   }, []);
   
   // Etkinlik silme işlemini yapmak için dialog göster
@@ -90,12 +169,47 @@ const EventDetailScreen = ({ route, navigation }) => {
         },
         {
           text: "Sil",
-          onPress: () => {
-            // Silme işlemini çağır
-            if (onDelete) {
-              onDelete(event.id);
+          onPress: async () => {
+            try {
+              // Silme işlemi başlıyor bildirimi
+              console.log("Etkinlik silme işlemi başlatılıyor, ID:", event.id);
+              
+              // onDelete fonksiyonu varsa çağır ve await ile bekle
+              if (onDelete) {
+                const result = await onDelete(event.id);
+                
+                if (result && result.success) {
+                  console.log("Etkinlik başarıyla silindi");
+                  // Başarılı silme işlemi sonrası geri dön
+                  navigation.goBack();
+                } else {
+                  // Silme başarısız olduysa kullanıcıya bildir
+                  const errorMsg = result?.error || "Etkinlik silinirken bir hata oluştu";
+                  console.error("Etkinlik silme hatası:", errorMsg);
+                  
+                  Alert.alert(
+                    "Silme Hatası",
+                    errorMsg,
+                    [{ text: "Tamam" }]
+                  );
+                }
+              } else {
+                console.error("onDelete fonksiyonu tanımlanmamış");
+                Alert.alert(
+                  "İşlem Hatası",
+                  "Silme fonksiyonu tanımlanmamış. Lütfen daha sonra tekrar deneyin.",
+                  [{ text: "Tamam" }]
+                );
+              }
+            } catch (error) {
+              console.error("Etkinlik silme işlemi sırasında beklenmeyen hata:", error);
+              
+              Alert.alert(
+                "Beklenmeyen Hata",
+                "Etkinlik silinirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.",
+                [{ text: "Tamam" }]
+              );
             }
-            navigation.goBack();
           },
           style: "destructive"
         }
@@ -113,17 +227,21 @@ const EventDetailScreen = ({ route, navigation }) => {
   const getEventTypeDetails = () => {
     switch(event.type) {
       case 'meeting':
-        return { iconName: 'people-outline', label: 'Toplantı' };
+        return { iconName: 'people-outline', label: 'Toplantı', category: 'İş' };
       case 'review':
-        return { iconName: 'document-text-outline', label: 'İnceleme' };
+        return { iconName: 'document-text-outline', label: 'İnceleme', category: 'İş' };
       case 'sketch':
-        return { iconName: 'brush-outline', label: 'Taslak' };
+        return { iconName: 'brush-outline', label: 'Taslak', category: 'Kişisel' };
+      case 'sport':
+        return { iconName: 'fitness-outline', label: 'Spor', category: 'Sağlık' };
+      case 'social':
+        return { iconName: 'people-circle-outline', label: 'Sosyal', category: 'Kişisel' };
       default:
-        return { iconName: 'calendar-outline', label: 'Etkinlik' };
+        return { iconName: 'calendar-outline', label: 'Etkinlik', category: 'Genel' };
     }
   };
   
-  const { iconName, label } = getEventTypeDetails();
+  const { iconName, label, category } = getEventTypeDetails();
   const backgroundColor = event.color || '#FF9800';
 
   return (
@@ -230,76 +348,30 @@ const EventDetailScreen = ({ route, navigation }) => {
         bounces={false}
       >
         {/* Detay Kartı */}
-        <Animated.View 
-          style={[
-            styles.detailCard,
-            {
-              opacity: cardAnim,
-              transform: [
-                { translateY: cardAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [50, 0],
-                  })
-                }
-              ]
-            }
-          ]}
-        >
-          {/* Açıklama Bölümü */}
+        <SharedElement id={`event.${event.id}.card`}>
           <Animated.View 
             style={[
-              styles.detailSection,
+              styles.detailCard,
               {
-                opacity: sectionAnims[0],
+                opacity: cardAnim,
                 transform: [
-                  { translateY: sectionAnims[0].interpolate({
+                  { translateY: cardAnim.interpolate({
                       inputRange: [0, 1],
-                      outputRange: [20, 0],
+                      outputRange: [50, 0],
                     })
                   }
                 ]
               }
             ]}
           >
-            <View style={styles.sectionHeader}>
-              <Ionicons name="document-text-outline" size={22} color={backgroundColor} />
-              <Text style={[styles.sectionTitle, { color: backgroundColor }]}>Açıklama</Text>
-            </View>
-            <Text style={styles.sectionContent}>{event.title}</Text>
-          </Animated.View>
-          
-          {/* Zaman Bölümü */}
-          <Animated.View 
-            style={[
-              styles.detailSection,
-              {
-                opacity: sectionAnims[1],
-                transform: [
-                  { translateY: sectionAnims[1].interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [20, 0],
-                    })
-                  }
-                ]
-              }
-            ]}
-          >
-            <View style={styles.sectionHeader}>
-              <Ionicons name="time-outline" size={22} color={backgroundColor} />
-              <Text style={[styles.sectionTitle, { color: backgroundColor }]}>Zaman</Text>
-            </View>
-            <Text style={styles.sectionContent}>{event.startTime} - {event.endTime}</Text>
-          </Animated.View>
-          
-          {/* Konum Bölümü (varsa) */}
-          {event.location && (
+            {/* Açıklama Bölümü */}
             <Animated.View 
               style={[
                 styles.detailSection,
                 {
-                  opacity: sectionAnims[2],
+                  opacity: descriptionAnim,
                   transform: [
-                    { translateY: sectionAnims[2].interpolate({
+                    { translateY: descriptionAnim.interpolate({
                         inputRange: [0, 1],
                         outputRange: [20, 0],
                       })
@@ -309,22 +381,20 @@ const EventDetailScreen = ({ route, navigation }) => {
               ]}
             >
               <View style={styles.sectionHeader}>
-                <Ionicons name="location-outline" size={22} color={backgroundColor} />
-                <Text style={[styles.sectionTitle, { color: backgroundColor }]}>Konum</Text>
+                <Ionicons name="document-text-outline" size={22} color={backgroundColor} />
+                <Text style={[styles.sectionTitle, { color: backgroundColor }]}>Açıklama</Text>
               </View>
-              <Text style={styles.sectionContent}>{event.location}</Text>
+              <Text style={styles.sectionContent}>{event.title}</Text>
             </Animated.View>
-          )}
-          
-          {/* Katılımcılar Bölümü (varsa) */}
-          {event.participants && event.participants.length > 0 && (
+            
+            {/* Zaman Bölümü */}
             <Animated.View 
               style={[
                 styles.detailSection,
                 {
-                  opacity: sectionAnims[3],
+                  opacity: timeAnim,
                   transform: [
-                    { translateY: sectionAnims[3].interpolate({
+                    { translateY: timeAnim.interpolate({
                         inputRange: [0, 1],
                         outputRange: [20, 0],
                       })
@@ -334,49 +404,122 @@ const EventDetailScreen = ({ route, navigation }) => {
               ]}
             >
               <View style={styles.sectionHeader}>
-                <Ionicons name="people-outline" size={22} color={backgroundColor} />
-                <Text style={[styles.sectionTitle, { color: backgroundColor }]}>Katılımcılar</Text>
+                <Ionicons name="time-outline" size={22} color={backgroundColor} />
+                <Text style={[styles.sectionTitle, { color: backgroundColor }]}>Zaman</Text>
               </View>
-              <View style={styles.participantsContainer}>
-                {event.participants.map((participant, index) => (
-                  <View key={index} style={styles.participantItem}>
-                    <View style={[styles.avatarCircle, { backgroundColor: backgroundColor + '20' }]}>
-                      <Text style={[styles.avatarText, { color: backgroundColor }]}>
-                        {participant.substring(0, 2).toUpperCase()}
-                      </Text>
+              <Text style={styles.sectionContent}>{event.startTime} - {event.endTime}</Text>
+            </Animated.View>
+            
+            {/* Konum Bölümü (varsa) */}
+            {event.location && (
+              <Animated.View 
+                style={[
+                  styles.detailSection,
+                  {
+                    opacity: locationAnim,
+                    transform: [
+                      { translateY: locationAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [20, 0],
+                        })
+                      }
+                    ]
+                  }
+                ]}
+              >
+                <View style={styles.sectionHeader}>
+                  <Ionicons name="location-outline" size={22} color={backgroundColor} />
+                  <Text style={[styles.sectionTitle, { color: backgroundColor }]}>Konum</Text>
+                </View>
+                <Text style={styles.sectionContent}>{event.location}</Text>
+              </Animated.View>
+            )}
+            
+            {/* Kategori Bilgisi */}
+            <Animated.View 
+              style={[
+                styles.detailSection,
+                {
+                  opacity: categoryAnim,
+                  transform: [
+                    { translateY: categoryAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [20, 0],
+                      })
+                    }
+                  ]
+                }
+              ]}
+            >
+              <View style={styles.sectionHeader}>
+                <Ionicons name="bookmark-outline" size={22} color={backgroundColor} />
+                <Text style={[styles.sectionTitle, { color: backgroundColor }]}>Kategori</Text>
+              </View>
+              <Text style={styles.sectionContent}>{category}</Text>
+            </Animated.View>
+            
+            {/* Katılımcılar Bölümü (varsa) */}
+            {event.participants && event.participants.length > 0 && (
+              <Animated.View 
+                style={[
+                  styles.detailSection,
+                  {
+                    opacity: participantsAnim,
+                    transform: [
+                      { translateY: participantsAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [20, 0],
+                        })
+                      }
+                    ]
+                  }
+                ]}
+              >
+                <View style={styles.sectionHeader}>
+                  <Ionicons name="people-outline" size={22} color={backgroundColor} />
+                  <Text style={[styles.sectionTitle, { color: backgroundColor }]}>Katılımcılar</Text>
+                </View>
+                <View style={styles.participantsContainer}>
+                  {event.participants.map((participant, index) => (
+                    <View key={index} style={styles.participantItem}>
+                      <View style={[styles.avatarCircle, { backgroundColor: backgroundColor + '20' }]}>
+                        <Text style={[styles.avatarText, { color: backgroundColor }]}>
+                          {participant.substring(0, 2).toUpperCase()}
+                        </Text>
+                      </View>
+                      <Text style={styles.participantName}>{participant}</Text>
                     </View>
-                    <Text style={styles.participantName}>{participant}</Text>
-                  </View>
-                ))}
-              </View>
-            </Animated.View>
-          )}
-          
-          {/* Hatırlatıcı Bölümü (varsa) */}
-          {event.reminder && (
-            <Animated.View 
-              style={[
-                styles.detailSection,
-                {
-                  opacity: sectionAnims[4],
-                  transform: [
-                    { translateY: sectionAnims[4].interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [20, 0],
-                      })
-                    }
-                  ]
-                }
-              ]}
-            >
-              <View style={styles.sectionHeader}>
-                <Ionicons name="notifications-outline" size={22} color={backgroundColor} />
-                <Text style={[styles.sectionTitle, { color: backgroundColor }]}>Hatırlatıcı</Text>
-              </View>
-              <Text style={styles.sectionContent}>{event.reminder}</Text>
-            </Animated.View>
-          )}
-        </Animated.View>
+                  ))}
+                </View>
+              </Animated.View>
+            )}
+            
+            {/* Hatırlatıcı Bölümü (varsa) */}
+            {event.reminder && (
+              <Animated.View 
+                style={[
+                  styles.detailSection,
+                  {
+                    opacity: reminderAnim,
+                    transform: [
+                      { translateY: reminderAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [20, 0],
+                        })
+                      }
+                    ]
+                  }
+                ]}
+              >
+                <View style={styles.sectionHeader}>
+                  <Ionicons name="notifications-outline" size={22} color={backgroundColor} />
+                  <Text style={[styles.sectionTitle, { color: backgroundColor }]}>Hatırlatıcı</Text>
+                </View>
+                <Text style={styles.sectionContent}>{event.reminder}</Text>
+              </Animated.View>
+            )}
+          </Animated.View>
+        </SharedElement>
         
         {/* İşlem Butonları */}
         <Animated.View 
@@ -415,6 +558,12 @@ const EventDetailScreen = ({ route, navigation }) => {
       </ScrollView>
     </View>
   );
+};
+
+// SharedElement yapılandırması
+EventDetailScreen.sharedElements = (route) => {
+  const { event } = route.params;
+  return [`event.${event.id}.card`];
 };
 
 const styles = StyleSheet.create({
@@ -474,6 +623,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
+    marginTop: 15,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
@@ -508,6 +658,7 @@ const styles = StyleSheet.create({
   },
   detailSection: {
     marginBottom: 24,
+    marginTop: 3,
   },
   sectionHeader: {
     flexDirection: 'row',

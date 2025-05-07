@@ -14,16 +14,17 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { SharedElement } from 'react-navigation-shared-element';
 
 const { width, height } = Dimensions.get('window');
 
 // Sıralı animasyon oluşturmak için yardımcı fonksiyon
-const createAnimationSequence = (animations, delay = 70) => {
-  return animations.map((_, i) => Animated.timing(
-    animations[i],
+const createAnimationSequence = (animations, duration = 250, delay = 50) => {
+  return animations.map((anim, i) => Animated.timing(
+    anim,
     {
       toValue: 1,
-      duration: 276,
+      duration: duration,
       delay: i * delay,
       useNativeDriver: true,
       easing: Easing.out(Easing.ease),
@@ -38,49 +39,144 @@ const TodoDetailScreen = ({ route, navigation }) => {
   // Animasyon değerleri
   const headerAnim = useRef(new Animated.Value(0)).current;
   const iconAnim = useRef(new Animated.Value(0)).current;
-  const typeAnim = useRef(new Animated.Value(0)).current;
   const titleAnim = useRef(new Animated.Value(0)).current;
-  const statusAnim = useRef(new Animated.Value(0)).current;
   const cardAnim = useRef(new Animated.Value(0)).current;
-  const sectionAnims = [
-    useRef(new Animated.Value(0)).current,
-    useRef(new Animated.Value(0)).current,
-    useRef(new Animated.Value(0)).current,
-    useRef(new Animated.Value(0)).current,
-    useRef(new Animated.Value(0)).current,
-    useRef(new Animated.Value(0)).current,
-    useRef(new Animated.Value(0)).current,
-  ];
+  
+  // Her bölüm için ayrı animasyon değerleri
+  const descriptionAnim = useRef(new Animated.Value(0)).current;
+  const timeAnim = useRef(new Animated.Value(0)).current;
+  const dueDateAnim = useRef(new Animated.Value(0)).current;
+  const dueTimeAnim = useRef(new Animated.Value(0)).current;
+  const statusAnim = useRef(new Animated.Value(0)).current;
+  const priorityAnim = useRef(new Animated.Value(0)).current;
+  const categoryAnim = useRef(new Animated.Value(0)).current;
+  const reminderAnim = useRef(new Animated.Value(0)).current;
+  const tagsAnim = useRef(new Animated.Value(0)).current;
+  
   const buttonsAnim = useRef(new Animated.Value(0)).current;
   
   // Animasyonları başlat
   useEffect(() => {
-    const sequentialAnimations = [
+    // Tüm animasyonları sırayla başlat
+    Animated.sequence([
+      // 1. Header animasyonu
       Animated.timing(headerAnim, {
         toValue: 1,
-        duration: 345,
+        duration: 300,
         useNativeDriver: true,
         easing: Easing.out(Easing.ease),
       }),
-      ...createAnimationSequence([iconAnim, typeAnim, titleAnim, statusAnim], 55),
+      
+      // 2. İkon ve başlık animasyonu
+      Animated.parallel([
+        Animated.timing(iconAnim, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+          easing: Easing.out(Easing.ease),
+        }),
+        Animated.timing(titleAnim, {
+          toValue: 1,
+          duration: 250,
+          delay: 50,
+          useNativeDriver: true,
+          easing: Easing.out(Easing.ease),
+        }),
+      ]),
+      
+      // 3. Kart animasyonu
       Animated.timing(cardAnim, {
         toValue: 1,
-        duration: 345,
-        delay: 172,
+        duration: 300,
         useNativeDriver: true,
         easing: Easing.out(Easing.ease),
       }),
-      ...createAnimationSequence(sectionAnims, 70),
+      
+      // 4. Kart içindeki bölümlerin animasyonu - sırayla
+      Animated.stagger(70, [
+        Animated.timing(descriptionAnim, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+          easing: Easing.out(Easing.ease),
+        }),
+        
+        ...(todo.startTime && todo.endTime ? [
+          Animated.timing(timeAnim, {
+            toValue: 1,
+            duration: 250,
+            useNativeDriver: true,
+            easing: Easing.out(Easing.ease),
+          })
+        ] : []),
+        
+        ...(todo.dueDate ? [
+          Animated.timing(dueDateAnim, {
+            toValue: 1,
+            duration: 250,
+            useNativeDriver: true,
+            easing: Easing.out(Easing.ease),
+          })
+        ] : []),
+        
+        ...(todo.dueTime ? [
+          Animated.timing(dueTimeAnim, {
+            toValue: 1,
+            duration: 250,
+            useNativeDriver: true,
+            easing: Easing.out(Easing.ease),
+          })
+        ] : []),
+        
+        Animated.timing(statusAnim, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+          easing: Easing.out(Easing.ease),
+        }),
+        
+        Animated.timing(priorityAnim, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+          easing: Easing.out(Easing.ease),
+        }),
+        
+        // Kategori animasyonu
+        Animated.timing(categoryAnim, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+          easing: Easing.out(Easing.ease),
+        }),
+        
+        ...(todo.reminder ? [
+          Animated.timing(reminderAnim, {
+            toValue: 1,
+            duration: 250,
+            useNativeDriver: true,
+            easing: Easing.out(Easing.ease),
+          })
+        ] : []),
+        
+        ...(todo.tags && todo.tags.length > 0 ? [
+          Animated.timing(tagsAnim, {
+            toValue: 1,
+            duration: 250,
+            useNativeDriver: true,
+            easing: Easing.out(Easing.ease),
+          })
+        ] : []),
+      ]),
+      
+      // 5. Butonlar animasyonu
       Animated.timing(buttonsAnim, {
         toValue: 1,
-        duration: 276,
-        delay: 207,
+        duration: 250,
         useNativeDriver: true,
         easing: Easing.out(Easing.elastic(1)),
       }),
-    ];
-    
-    Animated.sequence(sequentialAnimations).start();
+    ]).start();
   }, []);
   
   // Görev silme fonksiyonu
@@ -119,25 +215,35 @@ const TodoDetailScreen = ({ route, navigation }) => {
     const newStatus = !isCompleted;
     setIsCompleted(newStatus);
     
-    // API'ye güncelleme gönder (ileride eklenecek)
-    // updateTodoStatus(todo.id, newStatus);
+    // Takvim context'ten alınan fonksiyon ile görev durumunu güncelle
+    if (route.params?.onToggleComplete) {
+      route.params.onToggleComplete(todo.id, newStatus);
+      
+      // Eğer görev tamamlandıysa takvim ekranına dön
+      if (newStatus) {
+        // Kısa bir gecikme ile geri dönelim, böylece kullanıcı tamamlandığını görebilir
+        setTimeout(() => {
+          navigation.goBack();
+        }, 300);
+      }
+    }
   };
   
   // Görev türüne göre simge ve etiket belirle
   const getTodoTypeDetails = () => {
     switch(todo.priority) {
       case 'high':
-        return { iconName: 'alert-circle-outline', label: 'Yüksek Öncelik', color: '#E53935' };
+        return { iconName: 'alert-circle-outline', label: 'Yüksek Öncelik', color: '#E53935', category: 'Önemli' };
       case 'medium':
-        return { iconName: 'time-outline', label: 'Orta Öncelik', color: '#FB8C00' };
+        return { iconName: 'time-outline', label: 'Orta Öncelik', color: '#FB8C00', category: 'Standart' };
       case 'low':
-        return { iconName: 'checkmark-circle-outline', label: 'Düşük Öncelik', color: '#43A047' };
+        return { iconName: 'checkmark-circle-outline', label: 'Düşük Öncelik', color: '#43A047', category: 'İsteğe Bağlı' };
       default:
-        return { iconName: 'checkbox-outline', label: 'Görev', color: '#4CAF50' };
+        return { iconName: 'checkbox-outline', label: 'Görev', color: '#4CAF50', category: 'Genel' };
     }
   };
   
-  const { iconName, label, color } = getTodoTypeDetails();
+  const { iconName, label, color, category } = getTodoTypeDetails();
   const backgroundColor = todo.color || color;
 
   return (
@@ -202,24 +308,6 @@ const TodoDetailScreen = ({ route, navigation }) => {
             
             <Animated.Text 
               style={[
-                styles.taskType,
-                {
-                  opacity: typeAnim,
-                  transform: [
-                    { translateY: typeAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [20, 0],
-                      })
-                    }
-                  ]
-                }
-              ]}
-            >
-              {label}
-            </Animated.Text>
-            
-            <Animated.Text 
-              style={[
                 styles.taskTitle,
                 {
                   opacity: titleAnim,
@@ -233,13 +321,136 @@ const TodoDetailScreen = ({ route, navigation }) => {
                 }
               ]}
             >
-              {todo.description || todo.title}
+              {todo.title}
             </Animated.Text>
-            
-            {/* Tamamlanma Durumu Göstergesi */}
+          </View>
+        </SafeAreaView>
+      </Animated.View>
+      
+      <ScrollView 
+        style={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
+        {/* Detay Kartı */}
+        <SharedElement id={`todo.${todo.id}.card`}>
+          <Animated.View 
+            style={[
+              styles.detailCard,
+              {
+                opacity: cardAnim,
+                transform: [
+                  { translateY: cardAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [50, 0],
+                    })
+                  }
+                ]
+              }
+            ]}
+          >
+            {/* Açıklama Bölümü */}
             <Animated.View 
               style={[
-                styles.statusContainer,
+                styles.detailSection,
+                {
+                  opacity: descriptionAnim,
+                  transform: [
+                    { translateY: descriptionAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [20, 0],
+                      })
+                    }
+                  ]
+                }
+              ]}
+            >
+              <View style={styles.sectionHeader}>
+                <Ionicons name="document-text-outline" size={22} color={backgroundColor} />
+                <Text style={[styles.sectionTitle, { color: backgroundColor }]}>Açıklama</Text>
+              </View>
+              <Text style={styles.sectionContent}>{todo.description || "Açıklama yok"}</Text>
+            </Animated.View>
+            
+            {/* Zaman Bilgisi (varsa) */}
+            {(todo.startTime && todo.endTime) && (
+              <Animated.View 
+                style={[
+                  styles.detailSection,
+                  {
+                    opacity: timeAnim,
+                    transform: [
+                      { translateY: timeAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [20, 0],
+                        })
+                      }
+                    ]
+                  }
+                ]}
+              >
+                <View style={styles.sectionHeader}>
+                  <Ionicons name="time-outline" size={22} color={backgroundColor} />
+                  <Text style={[styles.sectionTitle, { color: backgroundColor }]}>Zaman</Text>
+                </View>
+                <Text style={styles.sectionContent}>{todo.startTime} - {todo.endTime}</Text>
+              </Animated.View>
+            )}
+            
+            {/* Bitiş Tarihi (varsa) */}
+            {todo.dueDate && (
+              <Animated.View 
+                style={[
+                  styles.detailSection,
+                  {
+                    opacity: dueDateAnim,
+                    transform: [
+                      { translateY: dueDateAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [20, 0],
+                        })
+                      }
+                    ]
+                  }
+                ]}
+              >
+                <View style={styles.sectionHeader}>
+                  <Ionicons name="calendar-outline" size={22} color={backgroundColor} />
+                  <Text style={[styles.sectionTitle, { color: backgroundColor }]}>Bitiş Tarihi</Text>
+                </View>
+                <Text style={styles.sectionContent}>{todo.dueDate}</Text>
+              </Animated.View>
+            )}
+            
+            {/* Bitiş Saati (varsa) */}
+            {todo.dueTime && (
+              <Animated.View 
+                style={[
+                  styles.detailSection,
+                  {
+                    opacity: dueTimeAnim,
+                    transform: [
+                      { translateY: dueTimeAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [20, 0],
+                        })
+                      }
+                    ]
+                  }
+                ]}
+              >
+                <View style={styles.sectionHeader}>
+                  <Ionicons name="time-outline" size={22} color={backgroundColor} />
+                  <Text style={[styles.sectionTitle, { color: backgroundColor }]}>Bitiş Saati</Text>
+                </View>
+                <Text style={styles.sectionContent}>{todo.dueTime}</Text>
+              </Animated.View>
+            )}
+            
+            {/* Durum Toggle */}
+            <Animated.View 
+              style={[
+                styles.detailSection,
                 {
                   opacity: statusAnim,
                   transform: [
@@ -252,239 +463,130 @@ const TodoDetailScreen = ({ route, navigation }) => {
                 }
               ]}
             >
-              <View style={[
-                styles.statusBadge, 
-                { backgroundColor: isCompleted ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)' }
-              ]}>
-                <View style={[
-                  styles.statusIndicator, 
-                  { backgroundColor: isCompleted ? '#FFFFFF' : 'transparent' }
-                ]}>
-                  {isCompleted && (
-                    <Ionicons name="checkmark" size={12} color={backgroundColor} />
-                  )}
-                </View>
-                <Text style={styles.statusText}>
-                  {isCompleted ? 'TAMAMLANDI' : 'DEVAM EDİYOR'}
+              <View style={styles.sectionHeader}>
+                <Ionicons name="checkmark-circle-outline" size={22} color={backgroundColor} />
+                <Text style={[styles.sectionTitle, { color: backgroundColor }]}>Durum</Text>
+              </View>
+              <View style={styles.toggleContainer}>
+                <Text style={styles.toggleLabel}>
+                  {isCompleted ? 'Görev tamamlandı' : 'Görevi tamamla'}
                 </Text>
+                <Switch
+                  value={isCompleted}
+                  onValueChange={toggleComplete}
+                  trackColor={{ false: "#E0E0E0", true: backgroundColor + '50' }}
+                  thumbColor={isCompleted ? backgroundColor : "#FFFFFF"}
+                  ios_backgroundColor="#E0E0E0"
+                />
               </View>
             </Animated.View>
-          </View>
-        </SafeAreaView>
-      </Animated.View>
-      
-      <ScrollView 
-        style={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-        bounces={false}
-      >
-        {/* Detay Kartı */}
-        <Animated.View 
-          style={[
-            styles.detailCard,
-            {
-              opacity: cardAnim,
-              transform: [
-                { translateY: cardAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [50, 0],
-                  })
+            
+            {/* Öncelik Bilgisi */}
+            <Animated.View 
+              style={[
+                styles.detailSection,
+                {
+                  opacity: priorityAnim,
+                  transform: [
+                    { translateY: priorityAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [20, 0],
+                      })
+                    }
+                  ]
                 }
-              ]
-            }
-          ]}
-        >
-          {/* Açıklama Bölümü */}
-          <Animated.View 
-            style={[
-              styles.detailSection,
-              {
-                opacity: sectionAnims[0],
-                transform: [
-                  { translateY: sectionAnims[0].interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [20, 0],
-                    })
+              ]}
+            >
+              <View style={styles.sectionHeader}>
+                <Ionicons name={iconName} size={22} color={backgroundColor} />
+                <Text style={[styles.sectionTitle, { color: backgroundColor }]}>Öncelik</Text>
+              </View>
+              <Text style={styles.sectionContent}>{label}</Text>
+            </Animated.View>
+            
+            {/* Kategori Bilgisi */}
+            <Animated.View 
+              style={[
+                styles.detailSection,
+                {
+                  opacity: categoryAnim,
+                  transform: [
+                    { translateY: categoryAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [20, 0],
+                      })
+                    }
+                  ]
+                }
+              ]}
+            >
+              <View style={styles.sectionHeader}>
+                <Ionicons name="bookmark-outline" size={22} color={backgroundColor} />
+                <Text style={[styles.sectionTitle, { color: backgroundColor }]}>Kategori</Text>
+              </View>
+              <Text style={styles.sectionContent}>{category}</Text>
+            </Animated.View>
+            
+            {/* Hatırlatıcı (varsa) */}
+            {todo.reminder && (
+              <Animated.View 
+                style={[
+                  styles.detailSection,
+                  {
+                    opacity: reminderAnim,
+                    transform: [
+                      { translateY: reminderAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [20, 0],
+                        })
+                      }
+                    ]
                   }
-                ]
-              }
-            ]}
-          >
-            <View style={styles.sectionHeader}>
-              <Ionicons name="document-text-outline" size={22} color={backgroundColor} />
-              <Text style={[styles.sectionTitle, { color: backgroundColor }]}>Açıklama</Text>
-            </View>
-            <Text style={styles.sectionContent}>{todo.title}</Text>
-          </Animated.View>
-          
-          {/* Zaman Bilgisi (varsa) */}
-          {(todo.startTime && todo.endTime) && (
-            <Animated.View 
-              style={[
-                styles.detailSection,
-                {
-                  opacity: sectionAnims[1],
-                  transform: [
-                    { translateY: sectionAnims[1].interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [20, 0],
-                      })
-                    }
-                  ]
-                }
-              ]}
-            >
-              <View style={styles.sectionHeader}>
-                <Ionicons name="time-outline" size={22} color={backgroundColor} />
-                <Text style={[styles.sectionTitle, { color: backgroundColor }]}>Zaman</Text>
-              </View>
-              <Text style={styles.sectionContent}>{todo.startTime} - {todo.endTime}</Text>
-            </Animated.View>
-          )}
-          
-          {/* Bitiş Tarihi (varsa) */}
-          {todo.dueDate && (
-            <Animated.View 
-              style={[
-                styles.detailSection,
-                {
-                  opacity: sectionAnims[2],
-                  transform: [
-                    { translateY: sectionAnims[2].interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [20, 0],
-                      })
-                    }
-                  ]
-                }
-              ]}
-            >
-              <View style={styles.sectionHeader}>
-                <Ionicons name="calendar-outline" size={22} color={backgroundColor} />
-                <Text style={[styles.sectionTitle, { color: backgroundColor }]}>Bitiş Tarihi</Text>
-              </View>
-              <Text style={styles.sectionContent}>{todo.dueDate}</Text>
-            </Animated.View>
-          )}
-          
-          {/* Bitiş Saati (varsa) */}
-          {todo.dueTime && (
-            <Animated.View 
-              style={[
-                styles.detailSection,
-                {
-                  opacity: sectionAnims[3],
-                  transform: [
-                    { translateY: sectionAnims[3].interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [20, 0],
-                      })
-                    }
-                  ]
-                }
-              ]}
-            >
-              <View style={styles.sectionHeader}>
-                <Ionicons name="time-outline" size={22} color={backgroundColor} />
-                <Text style={[styles.sectionTitle, { color: backgroundColor }]}>Bitiş Saati</Text>
-              </View>
-              <Text style={styles.sectionContent}>{todo.dueTime}</Text>
-            </Animated.View>
-          )}
-          
-          {/* Durum Toggle */}
-          <Animated.View 
-            style={[
-              styles.detailSection,
-              {
-                opacity: sectionAnims[4],
-                transform: [
-                  { translateY: sectionAnims[4].interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [20, 0],
-                    })
+                ]}
+              >
+                <View style={styles.sectionHeader}>
+                  <Ionicons name="notifications-outline" size={22} color={backgroundColor} />
+                  <Text style={[styles.sectionTitle, { color: backgroundColor }]}>Hatırlatıcı</Text>
+                </View>
+                <Text style={styles.sectionContent}>{todo.reminder}</Text>
+              </Animated.View>
+            )}
+            
+            {/* Etiketler (varsa) */}
+            {todo.tags && todo.tags.length > 0 && (
+              <Animated.View 
+                style={[
+                  styles.detailSection,
+                  {
+                    opacity: tagsAnim,
+                    transform: [
+                      { translateY: tagsAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [20, 0],
+                        })
+                      }
+                    ]
                   }
-                ]
-              }
-            ]}
-          >
-            <View style={styles.sectionHeader}>
-              <Ionicons name="checkmark-circle-outline" size={22} color={backgroundColor} />
-              <Text style={[styles.sectionTitle, { color: backgroundColor }]}>Durum</Text>
-            </View>
-            <View style={styles.toggleContainer}>
-              <Text style={styles.toggleLabel}>
-                {isCompleted ? 'Görev tamamlandı' : 'Görevi tamamla'}
-              </Text>
-              <Switch
-                value={isCompleted}
-                onValueChange={toggleComplete}
-                trackColor={{ false: "#E0E0E0", true: backgroundColor + '50' }}
-                thumbColor={isCompleted ? backgroundColor : "#FFFFFF"}
-                ios_backgroundColor="#E0E0E0"
-              />
-            </View>
+                ]}
+              >
+                <View style={styles.sectionHeader}>
+                  <Ionicons name="pricetag-outline" size={22} color={backgroundColor} />
+                  <Text style={[styles.sectionTitle, { color: backgroundColor }]}>Etiketler</Text>
+                </View>
+                <View style={styles.tagsContainer}>
+                  {todo.tags.map((tag, index) => (
+                    <View 
+                      key={index} 
+                      style={[styles.tagItem, { backgroundColor: backgroundColor + '15' }]}
+                    >
+                      <Text style={[styles.tagText, { color: backgroundColor }]}>{tag}</Text>
+                    </View>
+                  ))}
+                </View>
+              </Animated.View>
+            )}
           </Animated.View>
-          
-          {/* Hatırlatıcı (varsa) */}
-          {todo.reminder && (
-            <Animated.View 
-              style={[
-                styles.detailSection,
-                {
-                  opacity: sectionAnims[5],
-                  transform: [
-                    { translateY: sectionAnims[5].interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [20, 0],
-                      })
-                    }
-                  ]
-                }
-              ]}
-            >
-              <View style={styles.sectionHeader}>
-                <Ionicons name="notifications-outline" size={22} color={backgroundColor} />
-                <Text style={[styles.sectionTitle, { color: backgroundColor }]}>Hatırlatıcı</Text>
-              </View>
-              <Text style={styles.sectionContent}>{todo.reminder}</Text>
-            </Animated.View>
-          )}
-          
-          {/* Etiketler (varsa) */}
-          {todo.tags && todo.tags.length > 0 && (
-            <Animated.View 
-              style={[
-                styles.detailSection,
-                {
-                  opacity: sectionAnims[6],
-                  transform: [
-                    { translateY: sectionAnims[6].interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [20, 0],
-                      })
-                    }
-                  ]
-                }
-              ]}
-            >
-              <View style={styles.sectionHeader}>
-                <Ionicons name="pricetag-outline" size={22} color={backgroundColor} />
-                <Text style={[styles.sectionTitle, { color: backgroundColor }]}>Etiketler</Text>
-              </View>
-              <View style={styles.tagsContainer}>
-                {todo.tags.map((tag, index) => (
-                  <View 
-                    key={index} 
-                    style={[styles.tagItem, { backgroundColor: backgroundColor + '15' }]}
-                  >
-                    <Text style={[styles.tagText, { color: backgroundColor }]}>{tag}</Text>
-                  </View>
-                ))}
-              </View>
-            </Animated.View>
-          )}
-        </Animated.View>
+        </SharedElement>
         
         {/* İşlem Butonları */}
         <Animated.View 
@@ -523,6 +625,12 @@ const TodoDetailScreen = ({ route, navigation }) => {
       </ScrollView>
     </View>
   );
+};
+
+// SharedElement yapılandırması
+TodoDetailScreen.sharedElements = (route) => {
+  const { todo } = route.params;
+  return [`todo.${todo.id}.card`];
 };
 
 const styles = StyleSheet.create({
@@ -573,6 +681,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 20,
     paddingBottom: 30,
+    paddingTop: 0,
   },
   taskIconContainer: {
     width: 80,
@@ -581,17 +690,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.95)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 17,
+    marginTop: 15,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 6,
     elevation: 6,
-  },
-  taskType: {
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.85)',
-    marginBottom: 8,
   },
   taskTitle: {
     fontSize: 24,
@@ -599,31 +704,6 @@ const styles = StyleSheet.create({
     color: '#FFF',
     textAlign: 'center',
     marginBottom: 16,
-  },
-  statusContainer: {
-    alignItems: 'center',
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  statusIndicator: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 6,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
   },
   contentContainer: {
     flex: 1,
@@ -642,6 +722,7 @@ const styles = StyleSheet.create({
   },
   detailSection: {
     marginBottom: 24,
+    marginTop: 3,
   },
   sectionHeader: {
     flexDirection: 'row',

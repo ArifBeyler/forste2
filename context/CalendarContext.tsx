@@ -1,11 +1,29 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
-import { eventApi, supabase, checkSupabaseConnection } from '../lib/supabase';
+import { eventApi, supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 
 // AsyncStorage anahtarı
 const EVENTS_STORAGE_KEY = 'calendar_events';
 const TODOS_STORAGE_KEY = 'calendar_todos';
+
+// Supabase bağlantı durumunu kontrol etmek için yardımcı fonksiyon
+const checkSupabaseConnection = async () => {
+  try {
+    // Basit bir sorgu ile bağlantıyı test et
+    const { data, error } = await supabase.from('events').select('id').limit(1);
+    
+    if (error) {
+      console.error('Supabase bağlantı testi başarısız:', error.message);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Supabase bağlantı kontrolü başarısız:', error);
+    return false;
+  }
+};
 
 // Event ve Task tipleri
 interface BaseItem {
@@ -82,6 +100,28 @@ const storage = {
 // Context oluşturma
 const CalendarContext = createContext<CalendarContextType | undefined>(undefined);
 
+/**
+ * Versiyon 1.2.0 - Tamamen Manuel Yenileme Düzeltmesi
+ * 
+ * Yaşanan Sorun:
+ * - Önceki düzeltmeye rağmen takvim ekranı hala düzenli olarak yenileniyordu
+ * 
+ * Çözüm Özetleri:
+ * 1. Otomatik yenileme tamamen devre dışı bırakıldı:
+ *    - Yalnızca kullanıcı yenile butonuna bastığında yenilenecek
+ *    - Gün değişikliklerinde mevcut veriler kullanılacak
+ *    - API çağrıları minimize edildi, sadece gerçekten ihtiyaç olduğunda yapılıyor
+ * 
+ * 2. Güncel düzenlemeler:
+ *    - lastApiCallTime kullanılarak gereksiz API çağrıları önleniyor
+ *    - Events state'i değişiminde döngüsel yenileme önlendi
+ *    - Yenileme butonu için animasyon eklendi - kullanıcı geri bildirimi için
+ * 
+ * 3. Hafıza kullanımı optimizasyonu:
+ *    - Sadece gösterilen güne ait veriler aktif olarak tutulacak
+ *    - Tüm veriler arka planda önbelleğe alınacak
+ */
+
 // CalendarProvider props tipi
 interface CalendarProviderProps {
   children: React.ReactNode;
@@ -100,6 +140,7 @@ export const CalendarProvider: React.FC<CalendarProviderProps> = ({ children }) 
   const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isRefreshing = useRef(false);
   const lastFetchedDay = useRef<number | null>(null);
+  const lastApiCallTime = useRef<number | null>(null);
   
   // Çevrimiçi durumunu kontrol et - yalnızca bir kez
   useEffect(() => {
@@ -126,19 +167,30 @@ export const CalendarProvider: React.FC<CalendarProviderProps> = ({ children }) 
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
-      refresh();
-    } else if (user) {
+      // İlk açılışta bir kez veri yükle
       refresh();
     }
-  }, [user]);
+    // Kullanıcı değişikliğinde otomatik yenileme yapılmayacak
+  }, [user]); // refresh bağımlılığını kaldırdık
 
   // Seçilen gün değiştiğinde, o güne ait öğeleri göster
-  // events bağımlılığını çıkarıyoruz
   useEffect(() => {
+    // Sadece kullanıcı bir gün seçtiğinde ilgili günün verilerini filtrele
+    // Otomatik refresh yapmayacağız
     if (selectedDay !== lastFetchedDay.current) {
-      fetchByDay(selectedDay);
+      // Eğer events içinde veri varsa, önce yerel filtreleme yap
+      if (events.length > 0) {
+        console.log(`Gün ${selectedDay} için yerel veriler filtreleniyor...`);
+        const filteredEvents = events.filter(item => item.day === selectedDay);
+        setActiveEvents(filteredEvents);
+        lastFetchedDay.current = selectedDay;
+      } else {
+        // Events boşsa tekrar veri çekmek için fetchByDay çağrılıyor
+        console.log(`Gün ${selectedDay} için veri bulunamadı, yükleniyor...`);
+        fetchByDay(selectedDay);
+      }
     }
-  }, [selectedDay]);
+  }, [selectedDay, events.length]); // Sadece gün veya veri sayısı değiştiğinde
   
   // Tüm etkinlik ve görevleri yeniden yükle
   const refresh = useCallback(async () => {
@@ -156,7 +208,7 @@ export const CalendarProvider: React.FC<CalendarProviderProps> = ({ children }) 
     
     isRefreshing.current = true;
     setLoading(true);
-    console.log("Veriler yenileniyor...");
+    console.log("Veriler yenileniyor... (Manuel Yenileme)");
     
     try {
       // Önce yerel verileri yükle (her zaman)
@@ -167,9 +219,14 @@ export const CalendarProvider: React.FC<CalendarProviderProps> = ({ children }) 
       
       // Yerel veriler varsa kullan
       const combinedLocal = [...localEvents, ...localTodos];
+      
+      // Verileri state'e yükle
       if (combinedLocal.length > 0) {
         setEvents(combinedLocal);
       }
+      
+      // Tüm veri kaynakları (yerel veri ve olası Supabase verileri için kombinasyonu tutacak bir değişken)
+      let allData = combinedLocal;
       
       // Eğer çevrimiçiyse Supabase'den veri çek
       if (isOnline) {
@@ -195,6 +252,9 @@ export const CalendarProvider: React.FC<CalendarProviderProps> = ({ children }) 
           
           console.log(`Supabase'den ${eventData.length} etkinlik, ${todoData.length} görev alındı`);
           
+          // Son API çağrısı zamanını güncelle
+          lastApiCallTime.current = Date.now();
+          
           // Veri varsa güncelle
           const hasEvents = eventData.length > 0;
           const hasTodos = todoData.length > 0;
@@ -208,6 +268,9 @@ export const CalendarProvider: React.FC<CalendarProviderProps> = ({ children }) 
             console.log(`Toplam ${combinedData.length} öğe state'e yükleniyor`);
             setEvents(combinedData);
             
+            // Güncel verileri allData'ya atayalım ki aşağıda kullanabilelim
+            allData = combinedData;
+            
             // Yerel depolamayı da güncelle
             if (hasEvents) {
               await storage.saveItems(EVENTS_STORAGE_KEY, eventData);
@@ -219,21 +282,23 @@ export const CalendarProvider: React.FC<CalendarProviderProps> = ({ children }) 
           }
         } catch (supabaseError) {
           console.error('Supabase verisi alınırken hata:', supabaseError);
+          // Hata durumunda yerel veri ile devam ederiz
         }
       }
+      
+      // Verileri yükledikten sonra, seçili güne ait öğeleri filtrele
+      const filteredEvents = allData.filter(item => item.day === selectedDay);
+      setActiveEvents(filteredEvents);
+      lastFetchedDay.current = selectedDay;
+      console.log(`Güncellenmiş verilerden ${filteredEvents.length} öğe filtrelendi`);
+      
     } catch (error) {
       console.error('Takvim verileri yüklenirken hata:', error);
     } finally {
       setLoading(false);
       isRefreshing.current = false;
-      
-      // Verileri yükledikten sonra, seçili güne ait öğeleri filtrele
-      // fetchByDay fonksiyonunu çağırmak yerine filtrele
-      const filteredEvents = events.filter(item => item.day === selectedDay);
-      setActiveEvents(filteredEvents);
-      lastFetchedDay.current = selectedDay;
     }
-  }, [isOnline, user, selectedDay]);
+  }, [isOnline, user, selectedDay]); // Asla burada events bağımlılığını eklemeyin!
 
   // Belirli bir güne ait öğeleri getir
   const fetchByDay = useCallback(async (day: number) => {
@@ -243,17 +308,29 @@ export const CalendarProvider: React.FC<CalendarProviderProps> = ({ children }) 
     console.log(`Gün ${day} için veriler getiriliyor...`);
     
     try {
-      // Yerel filtreleme (her zaman yap)
-      const filteredEvents = events.filter(item => item.day === day);
+      // Önce yerel depolamadan verileri çek (events state'ine bağımlılığı kaldırmak için)
+      const localEvents = await storage.getItems<CalendarItem>(EVENTS_STORAGE_KEY);
+      const localTodos = await storage.getItems<CalendarItem>(TODOS_STORAGE_KEY);
+      const combinedLocal = [...localEvents, ...localTodos];
+      
+      // Yerel filtreleme
+      const filteredEvents = combinedLocal.filter(item => item.day === day);
       setActiveEvents(filteredEvents);
       lastFetchedDay.current = day;
       
       console.log(`Yerel verilerden ${filteredEvents.length} öğe filtrelendi`);
       
-      // Çevrimiçiyse Supabase'den de kontrol et
-      // Ancak bu isteği sadece gerçekten ihtiyaç olduğunda yapalım
-      if (isOnline && filteredEvents.length === 0) {
-        console.log("Çevrimiçi olduğundan ve yerel veri bulunmadığından Supabase'den günlük veriler çekiliyor...");
+      // API çağrısı SADECE aşağıdaki koşullarda yapılacak:
+      // 1. Çevrimiçi olunduğunda
+      // 2. Yerel veride hiç öğe bulunamadığında
+      // 3. Son API çağrısının üzerinden belirli bir süre geçtiğinde (örn: 30 dakika)
+      const shouldFetchFromAPI = isOnline && 
+                                (filteredEvents.length === 0 || 
+                                 !lastApiCallTime.current || 
+                                 (Date.now() - lastApiCallTime.current > 30 * 60 * 1000));
+      
+      if (shouldFetchFromAPI) {
+        console.log("Supabase'den günlük veriler çekiliyor...");
         
         try {
           // Kullanıcı ID'si
@@ -275,6 +352,9 @@ export const CalendarProvider: React.FC<CalendarProviderProps> = ({ children }) 
           
           console.log(`Supabase'den gün ${day} için ${dayEvents.length} etkinlik ve ${dayTodos.length} görev alındı`);
           
+          // API çağrısı zamanını güncelle
+          lastApiCallTime.current = Date.now();
+          
           if (dayEvents.length > 0 || dayTodos.length > 0) {
             // Her iki kaynaktan da gelen verileri birleştir
             const combinedData = [...dayEvents, ...dayTodos];
@@ -283,13 +363,15 @@ export const CalendarProvider: React.FC<CalendarProviderProps> = ({ children }) 
         } catch (supabaseError) {
           console.error(`Gün ${day} için Supabase sorgusu hatası:`, supabaseError);
         }
+      } else {
+        console.log("API çağrısı atlanıyor, mevcut veriler kullanılıyor");
       }
     } catch (error) {
       console.error('Günlük veriler yüklenirken hata:', error);
     } finally {
       setLoading(false);
     }
-  }, [events, isOnline, user]);
+  }, [isOnline, user]);
 
   // Yeni etkinlik ekle
   const addEvent = useCallback(async (eventData: Omit<Event, 'id'>): Promise<{ success: boolean; error: string | null }> => {
@@ -536,27 +618,46 @@ export const CalendarProvider: React.FC<CalendarProviderProps> = ({ children }) 
   // Etkinlik/görev sil
   const deleteEvent = useCallback(async (id: string): Promise<{ success: boolean; error: string | null }> => {
     try {
-      console.log(`Öğe siliniyor, ID: ${id}`);
+      console.log(`Öğe silme işlemi başlatılıyor, ID: ${id}`);
+      
+      if (!id) {
+        console.error('Silinecek öğe ID\'si belirtilmemiş');
+        return { success: false, error: 'Geçersiz ID: Silinecek öğe ID\'si belirtilmemiş' };
+      }
       
       // Silinen öğeyi bul
       const itemToDelete = events.find(item => item.id === id);
       if (!itemToDelete) {
         console.error(`Silinecek öğe bulunamadı, ID: ${id}`);
+        console.log('Mevcut etkinlikler:', JSON.stringify(events.map(e => ({ id: e.id, title: e.title })), null, 2));
         return { success: false, error: 'Silinecek öğe bulunamadı' };
       }
       
       const isTask = itemToDelete.type === 'todo';
-      console.log(`Öğe türü: ${isTask ? 'Görev' : 'Etkinlik'}`);
+      console.log(`Silinecek öğe türü: ${isTask ? 'Görev' : 'Etkinlik'}, Başlık: ${itemToDelete.title}`);
       
       // Yerel state'i güncelle - fonksiyonel güncelleme kullan
-      setEvents(prev => prev.filter(item => item.id !== id));
-      setActiveEvents(prev => prev.filter(item => item.id !== id));
-      console.log("State güncellendi");
+      setEvents(prev => {
+        const filtered = prev.filter(item => item.id !== id);
+        console.log(`Önceki etkinlik sayısı: ${prev.length}, Yeni etkinlik sayısı: ${filtered.length}`);
+        return filtered;
+      });
+      
+      setActiveEvents(prev => {
+        const filtered = prev.filter(item => item.id !== id);
+        console.log(`Önceki aktif etkinlik sayısı: ${prev.length}, Yeni aktif etkinlik sayısı: ${filtered.length}`);
+        return filtered;
+      });
+      
+      console.log("Uygulama state güncellemesi tamamlandı");
       
       // Yerel olarak sil
       const storageKey = isTask ? TODOS_STORAGE_KEY : EVENTS_STORAGE_KEY;
       const localItems = await storage.getItems<CalendarItem>(storageKey);
+      
+      console.log(`Yerel depolama silme öncesi ${storageKey} öğe sayısı: ${localItems.length}`);
       const updatedItems = localItems.filter(item => item.id !== id);
+      console.log(`Yerel depolama silme sonrası ${storageKey} öğe sayısı: ${updatedItems.length}`);
       
       await storage.saveItems(storageKey, updatedItems);
       console.log("Yerel depolama güncellendi");
@@ -586,9 +687,11 @@ export const CalendarProvider: React.FC<CalendarProviderProps> = ({ children }) 
           }
         } catch (supabaseError) {
           console.error('Supabase silme işlemi sırasında hata:', supabaseError);
+          // Hata olsa bile yerel silme başarılı olduğundan kullanıcı açısından işlem başarılı
         }
       }
       
+      console.log(`Öğe (ID: ${id}) başarıyla silindi`);
       return { success: true, error: null };
     } catch (error) {
       console.error('Öğe silinirken hata:', error);
